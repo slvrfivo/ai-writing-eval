@@ -84,7 +84,10 @@
 │   └── processed/    # 전처리된 데이터
 ├── docs/             # 공식 문서와 최신 공지
 ├── src/
-│   └── eda.py        # 재사용 가능한 EDA 실행 코드
+│   ├── eda.py        # 재사용 가능한 EDA 실행 코드
+│   └── evaluate.py   # 공식 반올림 규칙 기반 validation evaluator
+├── tests/
+│   └── test_evaluate.py
 ├── notebooks/        # 탐색 및 실험용 노트북
 ├── outputs/
 │   ├── eda_summary.md
@@ -122,3 +125,34 @@ python src/eda.py --data-dir data/raw --output-dir outputs
 ```
 
 원본 JSONL은 읽기 전용으로 열며 수정하지 않는다.
+
+## Validation 평가
+
+예측 파일은 JSON 객체 배열 또는 JSONL이며, 각 레코드는 validation의 `id`·`document_id` 또는 공식 예시의 `essay_id`로 식별한다. 세 영역을 직접 두거나 공식 `judge` 객체 안에 넣을 수 있다.
+
+```json
+[
+  {
+    "id": "GWGR2300001260",
+    "content": {"score": 3.5, "rationale": "내용 근거"},
+    "organization": {"score": 3, "rationale": "구성 근거"},
+    "expression": {"score": 4, "rationale": "표현 근거"}
+  }
+]
+```
+
+기본 `data/raw`의 validation을 자동 탐색해 평가한다.
+
+```powershell
+python src/evaluate.py --predictions predictions.json --require-rationale
+```
+
+예측 점수는 먼저 1~5 범위인지 검사하며, 실수이면 `ROUND_HALF_UP`으로 정수화한 뒤 세 영역 RMSE와 Spearman을 계산한다. 범위 밖 값은 clamp하지 않고 오류로 처리하며 `score.average`는 사용하지 않는다.
+
+```powershell
+# validation 정답 점수를 예측으로 복사하는 파이프라인 점검
+python src/evaluate.py --sanity-check
+
+# 단위 테스트
+python -m unittest discover -s tests -v
+```
