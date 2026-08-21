@@ -85,8 +85,12 @@
 ├── docs/             # 공식 문서와 최신 공지
 ├── src/
 │   ├── eda.py        # 재사용 가능한 EDA 실행 코드
-│   └── evaluate.py   # 공식 반올림 규칙 기반 validation evaluator
+│   ├── evaluate.py   # 공식 반올림 규칙 기반 validation evaluator
+│   └── baseline.py   # train 통계 기반 baseline
+├── reports/
+│   └── experiments.md
 ├── tests/
+│   ├── test_baseline.py
 │   └── test_evaluate.py
 ├── notebooks/        # 탐색 및 실험용 노트북
 ├── outputs/
@@ -156,3 +160,13 @@ python src/evaluate.py --sanity-check
 # 단위 테스트
 python -m unittest discover -s tests -v
 ```
+
+## 통계 Baseline
+
+Train에서만 Global Mean과 prompt_num별 평균을 계산하고, 기존 evaluator로 validation을 평가한다.
+
+```powershell
+python src/baseline.py
+```
+
+상세 결과는 `outputs/baselines/`에 저장되고, 포트폴리오용 요약은 `reports/experiments.md`에 기록한다.

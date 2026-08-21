@@ -4,7 +4,6 @@ import math
 import unittest
 
 from src.evaluate import (
-    EvaluationError,
     PredictionValidationError,
     evaluate_predictions,
     rmse,
@@ -79,8 +78,7 @@ class MetricTests(unittest.TestCase):
         self.assertAlmostEqual(spearman_correlation([1, 2, 2, 3], [1, 2, 2, 3]), 1.0)
 
     def test_constant_values_have_undefined_spearman(self) -> None:
-        with self.assertRaises(EvaluationError):
-            spearman_correlation([1, 2, 3], [2, 2, 2])
+        self.assertIsNone(spearman_correlation([1, 2, 3], [2, 2, 2]))
 
     def test_evaluator_ignores_average_and_supports_official_wrapper(self) -> None:
         ground_truth = [

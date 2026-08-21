@@ -139,8 +139,10 @@ def _average_ranks(values: Sequence[float]) -> np.ndarray:
     return ranks
 
 
-def spearman_correlation(y_true: Sequence[float], y_pred: Sequence[float]) -> float:
-    """동점 평균 순위를 사용해 Spearman 상관계수를 계산한다."""
+def spearman_correlation(
+    y_true: Sequence[float], y_pred: Sequence[float]
+) -> float | None:
+    """동점 평균 순위를 사용하고, 순위 분산이 없으면 None을 반환한다."""
     truth = np.asarray(y_true, dtype=float)
     prediction = np.asarray(y_pred, dtype=float)
     if truth.ndim != 1 or prediction.ndim != 1 or truth.shape != prediction.shape:
@@ -157,7 +159,7 @@ def spearman_correlation(y_true: Sequence[float], y_pred: Sequence[float]) -> fl
         * float(np.dot(prediction_centered, prediction_centered))
     )
     if denominator == 0:
-        raise EvaluationError("모든 값이 같아 Spearman 상관계수를 정의할 수 없습니다.")
+        return None
     return float(np.dot(truth_centered, prediction_centered) / denominator)
 
 
@@ -279,7 +281,7 @@ def evaluate_predictions(
             f"예측이 없는 정답 레코드가 {len(missing)}개입니다: {preview}{suffix}"
         )
 
-    dimension_metrics: dict[str, dict[str, float]] = {}
+    dimension_metrics: dict[str, dict[str, float | None]] = {}
     for dimension in DIMENSIONS:
         truth_values = [
             _ground_truth_score(truth_by_id[canonical], dimension, f"ground_truth[{canonical}]")
@@ -293,6 +295,15 @@ def evaluate_predictions(
             "spearman": spearman_correlation(truth_values, prediction_values),
         }
 
+    spearman_values = [
+        dimension_metrics[name]["spearman"] for name in DIMENSIONS
+    ]
+    mean_spearman = (
+        None
+        if any(value is None for value in spearman_values)
+        else float(np.mean(spearman_values))
+    )
+
     return {
         "n_samples": len(canonical_order),
         "rounding": "ROUND_HALF_UP",
@@ -302,9 +313,7 @@ def evaluate_predictions(
             "rmse": float(
                 np.mean([dimension_metrics[name]["rmse"] for name in DIMENSIONS])
             ),
-            "spearman": float(
-                np.mean([dimension_metrics[name]["spearman"] for name in DIMENSIONS])
-            ),
+            "spearman": mean_spearman,
         },
     }
 
