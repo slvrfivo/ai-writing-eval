@@ -1,0 +1,8 @@
+{
+  "source_document": "과제기술서_글쓰기 채점 능력 평가_260720 (1).pdf",
+  "source_page": [4, 5],
+  "source_section": "9.1 추론 프롬프트",
+  "prompt_version": "writing_scoring_2026-07-20",
+  "snapshot_sha256": "63684fd1d584f73d93eb91e2c00e8b0a027322112fd69a65c985771aa91403b0",
+  "snapshot_hash_definition": "SHA-256 of system.txt UTF-8 bytes, followed by one NUL byte, followed by user.txt UTF-8 bytes"
+}

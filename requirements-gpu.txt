@@ -1,0 +1,7 @@
+-r requirements.txt
+
+# PyTorch is intentionally not listed here. The AIPub virtual environment
+# already provides torch==2.5.1+cu124; verify it before installing this file.
+transformers==4.55.4
+accelerate==1.10.1
+bitsandbytes==0.47.0

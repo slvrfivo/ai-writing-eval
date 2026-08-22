@@ -1,0 +1,2 @@
+# Prompt snapshots are hashed byte-for-byte and must be identical on every OS.
+prompts/official/** text eol=lf

@@ -1,0 +1,11 @@
+{
+  "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+  "quantization": "nf4",
+  "compute_dtype": "bfloat16",
+  "double_quant": true,
+  "batch_size": 1,
+  "max_new_tokens": 512,
+  "do_sample": false,
+  "seed": 42,
+  "prompt_version": "writing_scoring_2026-07-20"
+}
