@@ -88,7 +88,7 @@ def config() -> InferenceConfig:
         compute_dtype="bfloat16",
         double_quant=True,
         batch_size=1,
-        max_new_tokens=512,
+        max_new_tokens=1024,
         do_sample=False,
         seed=42,
         prompt_version="writing_scoring_2026-07-20",
@@ -181,7 +181,7 @@ class PipelineTests(unittest.TestCase):
             )
             generate_call = model.generate_calls[0]
             self.assertFalse(generate_call["do_sample"])
-            self.assertEqual(generate_call["max_new_tokens"], 512)
+            self.assertEqual(generate_call["max_new_tokens"], 1024)
             for forbidden in ("temperature", "top_p", "top_k", "stop_strings"):
                 self.assertNotIn(forbidden, generate_call)
 
@@ -191,6 +191,8 @@ class PipelineTests(unittest.TestCase):
                 (root / "outputs" / "run_metadata.json").read_text(encoding="utf-8")
             )
             self.assertEqual(raw[0]["raw_output"], VALID_OUTPUT)
+            self.assertEqual(raw[0]["generated_tokens"], 2)
+            self.assertFalse(raw[0]["generation_truncated"])
             self.assertEqual(predictions[0]["essay_id"], "doc-1")
             self.assertEqual(predictions[0]["judge"]["content"]["score"], 3)
             self.assertEqual(result.success_count, 1)
@@ -200,6 +202,8 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(metadata["bitsandbytes_version"], "0.47.0")
             self.assertEqual(metadata["prompt_snapshot_sha256"], "63684fd1d584f73d93eb91e2c00e8b0a027322112fd69a65c985771aa91403b0")
             self.assertNotIn("stop_strings", metadata["generation_config"])
+            self.assertEqual(metadata["max_new_tokens"], 1024)
+            self.assertEqual(metadata["truncation_count"], 0)
             self.assertIn("peak_allocated_vram_bytes", metadata)
             self.assertIn("peak_reserved_vram_bytes", metadata)
 
@@ -214,6 +218,32 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(predictions, [])
             self.assertEqual(failures[0]["raw_output"], invalid)
             self.assertEqual(failures[0]["error"]["code"], "markdown_code_fence")
+
+    def test_max_new_tokens_exhaustion_is_recorded_as_truncation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            model = FakeModel(1)
+            model.outputs = [[11, 12, *range(1024)]]
+            result, _, _ = self.run_fake(
+                root,
+                [record(1)],
+                ['{"content":'],
+                model=model,
+            )
+
+            raw = read_jsonl(root / "outputs" / "raw_generations.jsonl")
+            failures = read_jsonl(root / "outputs" / "failures.jsonl")
+            metadata = json.loads(
+                (root / "outputs" / "run_metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(result.failure_count, 1)
+            self.assertEqual(raw[0]["generated_tokens"], 1024)
+            self.assertTrue(raw[0]["generation_truncated"])
+            self.assertEqual(failures[0]["generated_tokens"], 1024)
+            self.assertTrue(failures[0]["generation_truncated"])
+            self.assertEqual(failures[0]["error"]["code"], "invalid_json")
+            self.assertEqual(metadata["max_new_tokens"], 1024)
+            self.assertEqual(metadata["truncation_count"], 1)
 
     def test_limit_counts_only_attempted_samples(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

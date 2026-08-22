@@ -55,7 +55,7 @@ class InferenceConfig:
             "compute_dtype": (self.compute_dtype, "bfloat16"),
             "double_quant": (self.double_quant, True),
             "batch_size": (self.batch_size, 1),
-            "max_new_tokens": (self.max_new_tokens, 512),
+            "max_new_tokens": (self.max_new_tokens, 1024),
             "do_sample": (self.do_sample, False),
         }
         mismatches = {
@@ -105,6 +105,13 @@ class InferenceSample:
         if self.document_id is not None:
             fields["document_id"] = self.document_id
         return fields
+
+
+@dataclass(frozen=True)
+class GenerationResult:
+    raw_output: str
+    generated_tokens: int
+    generation_truncated: bool
 
 
 @dataclass(frozen=True)
@@ -255,7 +262,7 @@ def generate_one(
     model: Any,
     config: InferenceConfig,
     torch_module: Any,
-) -> str:
+) -> GenerationResult:
     """Generate one response using only the official prompt and normal EOS."""
     messages = build_messages(
         sample.prompt,
@@ -283,7 +290,12 @@ def generate_one(
     new_token_ids = generated[0][input_token_count:]
     if hasattr(new_token_ids, "tolist"):
         new_token_ids = new_token_ids.tolist()
-    return tokenizer.decode(new_token_ids, skip_special_tokens=True)
+    generated_tokens = len(new_token_ids)
+    return GenerationResult(
+        raw_output=tokenizer.decode(new_token_ids, skip_special_tokens=True),
+        generated_tokens=generated_tokens,
+        generation_truncated=generated_tokens == config.max_new_tokens,
+    )
 
 
 def _write_jsonl(stream: TextIO, record: Mapping[str, Any]) -> None:
@@ -430,10 +442,12 @@ def run_inference_pipeline(
         "started_at": utc_now(),
         "finished_at": None,
         "status": "running",
+        "max_new_tokens": config.max_new_tokens,
         "existing_success_count": existing_success_count,
         "attempted_count": 0,
         "success_count": 0,
         "failure_count": 0,
+        "truncation_count": 0,
         "skipped_count": 0,
         "cuda_memory_at_inference_start": initial_memory,
     }
@@ -447,6 +461,7 @@ def run_inference_pipeline(
     attempted_count = 0
     success_count = 0
     failure_count = 0
+    truncation_count = 0
     skipped_count = 0
     pipeline_error: BaseException | None = None
 
@@ -464,17 +479,24 @@ def run_inference_pipeline(
                     break
 
                 attempted_count += 1
-                raw_output = generate_one(
+                generation = generate_one(
                     sample,
                     tokenizer=tokenizer,
                     model=model,
                     config=config,
                     torch_module=torch_module,
                 )
-                raw_record = {**sample.identity_fields(), "raw_output": raw_output}
+                if generation.generation_truncated:
+                    truncation_count += 1
+                raw_record = {
+                    **sample.identity_fields(),
+                    "raw_output": generation.raw_output,
+                    "generated_tokens": generation.generated_tokens,
+                    "generation_truncated": generation.generation_truncated,
+                }
                 _write_jsonl(raw_stream, raw_record)
 
-                parsed = parse_model_output(raw_output)
+                parsed = parse_model_output(generation.raw_output)
                 if parsed.ok:
                     assert parsed.value is not None
                     prediction = {
@@ -488,7 +510,9 @@ def run_inference_pipeline(
                     assert parsed.failure is not None
                     failure = {
                         **sample.identity_fields(),
-                        "raw_output": raw_output,
+                        "raw_output": generation.raw_output,
+                        "generated_tokens": generation.generated_tokens,
+                        "generation_truncated": generation.generation_truncated,
                         "error": asdict(parsed.failure),
                     }
                     _write_jsonl(failure_stream, failure)
@@ -512,6 +536,7 @@ def run_inference_pipeline(
                 "attempted_count": attempted_count,
                 "success_count": success_count,
                 "failure_count": failure_count,
+                "truncation_count": truncation_count,
                 "skipped_count": skipped_count,
                 "completed_success_count": len(completed_ids),
                 "cuda_memory_at_inference_end": final_memory,

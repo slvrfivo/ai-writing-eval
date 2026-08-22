@@ -4,7 +4,7 @@
   "compute_dtype": "bfloat16",
   "double_quant": true,
   "batch_size": 1,
-  "max_new_tokens": 512,
+  "max_new_tokens": 1024,
   "do_sample": false,
   "seed": 42,
   "prompt_version": "writing_scoring_2026-07-20"
