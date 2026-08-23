@@ -131,6 +131,7 @@ class PipelineTests(unittest.TestCase):
         *,
         limit: int | None = None,
         model: FakeModel | None = None,
+        adapter_metadata: dict | None = None,
     ) -> tuple[object, FakeTokenizer, FakeModel]:
         input_path = root / "input.jsonl"
         output_dir = root / "outputs"
@@ -151,6 +152,7 @@ class PipelineTests(unittest.TestCase):
             config=config(),
             limit=limit,
             torch_module=FakeTorch(),
+            adapter_metadata=adapter_metadata,
         )
         return result, tokenizer, fake_model
 
@@ -206,6 +208,7 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(metadata["truncation_count"], 0)
             self.assertIn("peak_allocated_vram_bytes", metadata)
             self.assertIn("peak_reserved_vram_bytes", metadata)
+            self.assertEqual(metadata["adapter"], {"enabled": False})
 
     def test_parse_failure_preserves_raw_output(self) -> None:
         invalid = "```json\n{}\n```"
@@ -331,6 +334,77 @@ class PipelineTests(unittest.TestCase):
                     config=config(),
                     torch_module=FakeTorch(),
                 )
+
+    def test_adapter_metadata_is_recorded(self) -> None:
+        adapter = {
+            "enabled": True,
+            "path": "/mnt/checkpoints/adapter",
+            "peft_type": "LORA",
+            "task_type": "CAUSAL_LM",
+            "base_model_name_or_path": "Qwen/Qwen3-4B-Instruct-2507",
+            "fingerprint_sha256": "f" * 64,
+            "config": {"peft_type": "LORA"},
+            "is_trainable": False,
+            "merged": False,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.run_fake(
+                root,
+                [record(1)],
+                [VALID_OUTPUT],
+                adapter_metadata=adapter,
+            )
+            metadata = json.loads(
+                (root / "outputs" / "run_metadata.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(metadata["adapter"], adapter)
+
+    def test_resume_rejects_a_different_adapter_fingerprint(self) -> None:
+        first_adapter = {
+            "enabled": True,
+            "path": "/mnt/checkpoints/adapter",
+            "fingerprint_sha256": "a" * 64,
+            "config": {"peft_type": "LORA"},
+        }
+        second_adapter = {
+            **first_adapter,
+            "fingerprint_sha256": "b" * 64,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.run_fake(
+                root,
+                [record(1)],
+                [VALID_OUTPUT],
+                adapter_metadata=first_adapter,
+            )
+            with self.assertRaisesRegex(
+                ValueError, "resume metadata does not match"
+            ):
+                self.run_fake(
+                    root,
+                    [record(1)],
+                    [VALID_OUTPUT],
+                    adapter_metadata=second_adapter,
+                )
+
+    def test_legacy_zero_shot_metadata_without_adapter_resumes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.run_fake(root, [record(1)], [VALID_OUTPUT])
+            metadata_path = root / "outputs" / "run_metadata.json"
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            del metadata["adapter"]
+            metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+            result, _, _ = self.run_fake(
+                root,
+                [record(1), record(2)],
+                [VALID_OUTPUT],
+            )
+            self.assertEqual(result.skipped_count, 1)
+            self.assertEqual(result.success_count, 1)
 
     def test_prior_outputs_survive_generation_exception(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

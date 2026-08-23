@@ -333,11 +333,17 @@ def _validate_resume_metadata(
     if not isinstance(previous, dict):
         raise PipelineInputError("existing run_metadata.json must be a JSON object")
 
-    mismatches = {
-        key: {"previous": previous.get(key), "current": current}
-        for key, current in expected.items()
-        if previous.get(key) != current
-    }
+    mismatches = {}
+    for key, current in expected.items():
+        previous_value = previous.get(key)
+        if (
+            key == "adapter"
+            and current == {"enabled": False}
+            and previous_value is None
+        ):
+            previous_value = {"enabled": False}
+        if previous_value != current:
+            mismatches[key] = {"previous": previous.get(key), "current": current}
     if mismatches:
         raise PipelineInputError(
             "resume metadata does not match the current inference run: "
@@ -393,12 +399,28 @@ def run_inference_pipeline(
     torch_module: Any | None = None,
     cuda_memory_before_load: Mapping[str, Any] | None = None,
     cuda_memory_after_load: Mapping[str, Any] | None = None,
+    adapter_metadata: Mapping[str, Any] | None = None,
 ) -> PipelineResult:
     """Run durable batch-size-one inference, resuming successful predictions."""
     if limit is not None and (isinstance(limit, bool) or limit <= 0):
         raise PipelineInputError("limit must be a positive integer")
     config.validate()
     snapshot = load_prompt_snapshot(config.prompt_version)
+    adapter = (
+        {"enabled": False}
+        if adapter_metadata is None
+        else dict(adapter_metadata)
+    )
+    if not isinstance(adapter.get("enabled"), bool):
+        raise PipelineInputError("adapter metadata needs a boolean enabled field")
+    if adapter["enabled"]:
+        for required in ("path", "fingerprint_sha256", "config"):
+            if required not in adapter:
+                raise PipelineInputError(
+                    f"enabled adapter metadata is missing {required}"
+                )
+    else:
+        adapter = {"enabled": False}
 
     if torch_module is None:
         import torch as torch_module
@@ -418,6 +440,7 @@ def run_inference_pipeline(
         "quantization_config": config.quantization_metadata(),
         "generation_config": config.generation_metadata(),
         "input_path": str(input_path.resolve()),
+        "adapter": adapter,
     }
     _validate_resume_metadata(
         metadata_path=metadata_path,
@@ -437,6 +460,7 @@ def run_inference_pipeline(
         "accelerate_version": runtime_versions.get("accelerate"),
         "torch_version": runtime_versions.get("torch"),
         "bitsandbytes_version": runtime_versions.get("bitsandbytes"),
+        "peft_version": runtime_versions.get("peft"),
         "output_dir": str(output_dir.resolve()),
         "limit": limit,
         "started_at": utc_now(),

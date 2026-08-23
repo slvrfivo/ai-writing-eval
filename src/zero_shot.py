@@ -41,6 +41,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=positive_integer,
         help="maximum number of unfinished samples to attempt",
     )
+    parser.add_argument(
+        "--adapter",
+        type=Path,
+        help="optional local PEFT LoRA adapter directory",
+    )
     return parser.parse_args(argv)
 
 
@@ -57,7 +62,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         project_root() / "configs" / "qwen3_4b_zero_shot.json"
     )
 
-    loaded = load_quantized_qwen(config.model_id)
+    loaded = load_quantized_qwen(config.model_id, adapter_path=args.adapter)
 
     import torch
 
@@ -73,6 +78,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         torch_module=torch,
         cuda_memory_before_load=loaded.cuda_memory_before_load,
         cuda_memory_after_load=loaded.cuda_memory_after_load,
+        adapter_metadata=getattr(loaded, "adapter_metadata", {"enabled": False}),
     )
     print(json.dumps(result.__dict__, ensure_ascii=False, indent=2, default=str))
 

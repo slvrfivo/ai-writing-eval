@@ -16,11 +16,28 @@ class ZeroShotCliTests(unittest.TestCase):
                 "outputs/zero_shot/qwen3_4b",
                 "--limit",
                 "1",
+                "--adapter",
+                "/mnt/checkpoints/qwen3_4b_qlora_v1/final_adapter",
             ]
         )
         self.assertEqual(args.input, Path("input.jsonl"))
         self.assertEqual(args.output_dir, Path("outputs/zero_shot/qwen3_4b"))
         self.assertEqual(args.limit, 1)
+        self.assertEqual(
+            args.adapter,
+            Path("/mnt/checkpoints/qwen3_4b_qlora_v1/final_adapter"),
+        )
+
+    def test_adapter_is_optional(self) -> None:
+        args = parse_args(
+            [
+                "--input",
+                "input.jsonl",
+                "--output-dir",
+                "outputs/zero_shot/qwen3_4b",
+            ]
+        )
+        self.assertIsNone(args.adapter)
 
 
 if __name__ == "__main__":
