@@ -16,6 +16,7 @@ from .targets import AssistantTarget, CharacterSpan, build_assistant_target
 
 
 TOKEN_ROLES = ("prompt", "structure", "score", "rationale")
+MIXED_BOUNDARY_POLICY = "rationale_ending_to_rationale_v1"
 
 
 class TokenizationError(ValueError):
@@ -34,6 +35,14 @@ class SequenceLengthError(TokenizationError):
 
 
 @dataclass(frozen=True)
+class MixedBoundaryToken:
+    token_index: int
+    overlapping_roles: tuple[str, ...]
+    assigned_role: str
+    dimension: str
+
+
+@dataclass(frozen=True)
 class TokenizedExample:
     sample_id: str
     input_ids: list[int]
@@ -46,6 +55,7 @@ class TokenizedExample:
     prompt_token_count: int
     target_start: int
     target: AssistantTarget
+    mixed_boundary_tokens: tuple[MixedBoundaryToken, ...]
 
     @property
     def token_length(self) -> int:
@@ -108,23 +118,63 @@ def _overlaps(offset: tuple[int, int], span: CharacterSpan, shift: int) -> bool:
 
 
 def _assistant_assignment(
-    offset: tuple[int, int], target: AssistantTarget, target_start: int
-) -> tuple[str, str | None]:
+    offset: tuple[int, int],
+    target: AssistantTarget,
+    target_start: int,
+    token_index: int,
+) -> tuple[str, str | None, tuple[str, ...]]:
+    """Assign one role, allowing only rationale-end/structure mixed tokens.
+
+    The tokenizer may merge the final rationale character or punctuation with
+    the following JSON closing quote. That mixed token deterministically uses
+    the rationale role and weight. Every other cross-role overlap is rejected.
+    """
     if offset[0] == offset[1]:
-        return "structure", None
-    for preferred_role in ("score", "rationale"):
-        match = next(
-            (
-                span
-                for span in target.spans
-                if span.role == preferred_role
-                and _overlaps(offset, span, target_start)
-            ),
-            None,
+        return "structure", None, ()
+
+    overlapping = [
+        span for span in target.spans if _overlaps(offset, span, target_start)
+    ]
+    roles = {span.role for span in overlapping}
+    if len(roles) > 1:
+        rationale_spans = [span for span in overlapping if span.role == "rationale"]
+        is_expected_rationale_end = False
+        rationale_span: CharacterSpan | None = None
+        if roles == {"rationale", "structure"} and len(rationale_spans) == 1:
+            rationale_span = rationale_spans[0]
+            span_index = target.spans.index(rationale_span)
+            following_span = (
+                target.spans[span_index + 1]
+                if span_index + 1 < len(target.spans)
+                else None
+            )
+            boundary = target_start + rationale_span.end
+            is_expected_rationale_end = (
+                following_span is not None
+                and following_span.role == "structure"
+                and following_span.start == rationale_span.end
+                and offset[0] < boundary < offset[1]
+                and all(
+                    span.role == "rationale" or span.start >= rationale_span.end
+                    for span in overlapping
+                )
+            )
+        if not is_expected_rationale_end or rationale_span is None:
+            raise TokenizationError(
+                "unexpected cross-role token overlap at token "
+                f"{token_index}: offset={offset}, roles={sorted(roles)}"
+            )
+        return (
+            "rationale",
+            rationale_span.dimension,
+            ("rationale", "structure"),
         )
-        if match is not None:
-            return preferred_role, match.dimension
-    return "structure", None
+
+    if roles == {"score"}:
+        return "score", overlapping[0].dimension, ()
+    if roles == {"rationale"}:
+        return "rationale", overlapping[0].dimension, ()
+    return "structure", None, ()
 
 
 def _common_prefix_length(left: Sequence[int], right: Sequence[int]) -> int:
@@ -202,14 +252,16 @@ def encode_training_example(
         raise TokenizationError("attention_mask length does not match input_ids")
 
     assistant_assignments = [
-        _assistant_assignment(offset, target, target_start)
-        for offset in offsets[prompt_token_count:]
+        _assistant_assignment(offset, target, target_start, token_index)
+        for token_index, offset in enumerate(
+            offsets[prompt_token_count:], start=prompt_token_count
+        )
     ]
     roles = ["prompt"] * prompt_token_count + [
-        role for role, _ in assistant_assignments
+        role for role, _, _ in assistant_assignments
     ]
     dimensions = [None] * prompt_token_count + [
-        dimension for _, dimension in assistant_assignments
+        dimension for _, dimension, _ in assistant_assignments
     ]
     if len(roles) != len(input_ids):
         raise TokenizationError("token role count does not match input_ids")
@@ -227,6 +279,18 @@ def encode_training_example(
         prompt_token_count=prompt_token_count,
         target_start=target_start,
         target=target,
+        mixed_boundary_tokens=tuple(
+            MixedBoundaryToken(
+                token_index=token_index,
+                overlapping_roles=mixed_roles,
+                assigned_role=role,
+                dimension=dimension,
+            )
+            for token_index, (role, dimension, mixed_roles) in enumerate(
+                assistant_assignments, start=prompt_token_count
+            )
+            if mixed_roles and dimension is not None
+        ),
     )
     if max_seq_length is not None and example.token_length > max_seq_length:
         raise SequenceLengthError(sample.sample_id, example.token_length, max_seq_length)

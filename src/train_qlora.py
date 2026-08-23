@@ -42,8 +42,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--max-seq-length",
         type=positive_integer,
-        required=True,
-        help="selected from the token-length inspector; no truncation is applied",
+        help="optional config override; no truncation is applied",
     )
     parser.add_argument(
         "--max-steps",

@@ -10,6 +10,7 @@ from src.qlora.diagnostics import (
 )
 from src.qlora.tokenization import (
     SequenceLengthError,
+    TokenizationError,
     calculate_token_length_stats,
     encode_training_example,
     pad_batch_python,
@@ -18,9 +19,9 @@ from src.qlora.tokenization import (
 
 LOSS_WEIGHTS = {
     "prompt": 0.0,
-    "structure": 1.0,
+    "structure": 0.25,
     "score": 10.0,
-    "rationale": 0.1,
+    "rationale": 0.05,
 }
 
 
@@ -75,6 +76,53 @@ class OffsetFakeTokenizer:
         return "".join(chr(token_id // 2) for token_id in token_ids)
 
 
+class BoundaryMergingFakeTokenizer(OffsetFakeTokenizer):
+    def __init__(self, boundary: str) -> None:
+        super().__init__()
+        self.boundary = boundary
+        self.merged_tokens: dict[int, str] = {}
+
+    def __call__(self, text: str, **kwargs: object) -> dict:
+        input_ids: list[int] = []
+        offsets: list[tuple[int, int]] = []
+        index = 0
+        while index < len(text):
+            merge = (
+                self.boundary == "rationale_end"
+                and text[index : index + 2] == '."'
+            ) or (
+                self.boundary == "score_start"
+                and text[index] == ":"
+                and index + 1 < len(text)
+                and text[index + 1].isdigit()
+            )
+            if merge:
+                token_id = 1_000_000 + index
+                input_ids.append(token_id)
+                offsets.append((index, index + 2))
+                self.merged_tokens[token_id] = text[index : index + 2]
+                index += 2
+                continue
+            repetitions = 2 if text[index].isdigit() else 1
+            for repetition in range(repetitions):
+                input_ids.append(ord(text[index]) * 2 + repetition)
+                offsets.append((index, index + 1))
+            index += 1
+        result = {"input_ids": input_ids}
+        if kwargs.get("return_attention_mask", False):
+            result["attention_mask"] = [1] * len(input_ids)
+        if kwargs.get("return_offsets_mapping", False):
+            result["offset_mapping"] = offsets
+        return result
+
+    def decode(self, token_ids: list[int], **kwargs: object) -> str:
+        del kwargs
+        return "".join(
+            self.merged_tokens.get(token_id, chr(token_id // 2))
+            for token_id in token_ids
+        )
+
+
 def record() -> dict:
     return {
         "id": "sample-1",
@@ -110,9 +158,9 @@ class QLoRATokenizationTests(unittest.TestCase):
 
         role_to_weight = dict(zip(example.token_roles, example.loss_weights))
         self.assertEqual(role_to_weight["prompt"], 0.0)
-        self.assertEqual(role_to_weight["structure"], 1.0)
+        self.assertEqual(role_to_weight["structure"], 0.25)
         self.assertEqual(role_to_weight["score"], 10.0)
-        self.assertEqual(role_to_weight["rationale"], 0.1)
+        self.assertEqual(role_to_weight["rationale"], 0.05)
         self.assertEqual(example.token_roles.count("score"), 6)
         self.assertTrue(
             all(
@@ -150,8 +198,8 @@ class QLoRATokenizationTests(unittest.TestCase):
         self.assertTrue(debug["invariants"]["rationale_tokens_have_rationale_role"])
         self.assertTrue(debug["invariants"]["prompt_tokens_all_weight_zero"])
         self.assertTrue(debug["invariants"]["assistant_tokens_exactly_one_role"])
-        self.assertTrue(debug["invariants"]["score_boundaries_token_aligned"])
-        self.assertEqual(debug["invariants"]["cross_role_token_indices"], [])
+        self.assertEqual(debug["invariants"]["mixed_boundary_token_count"], 0)
+        self.assertEqual(debug["mixed_boundary_tokens"], [])
         self.assertTrue(all(span["token_count"] >= 1 for span in debug["score_spans"]))
         self.assertEqual(len(debug["tokens"]), example.token_length)
         self.assertTrue(
@@ -160,6 +208,53 @@ class QLoRATokenizationTests(unittest.TestCase):
                 for token in debug["tokens"][: example.prompt_token_count]
             )
         )
+
+    def test_rationale_ending_mixed_tokens_are_assigned_deterministically(self) -> None:
+        tokenizer = BoundaryMergingFakeTokenizer("rationale_end")
+        example = encode_training_example(
+            build_training_sample(record()),
+            tokenizer=tokenizer,
+            prompt_version="writing_scoring_2026-07-20",
+            loss_weights=LOSS_WEIGHTS,
+        )
+        boundaries = example.mixed_boundary_tokens
+
+        self.assertEqual(len(boundaries), 3)
+        self.assertEqual(
+            [boundary.dimension for boundary in boundaries],
+            ["content", "organization", "expression"],
+        )
+        self.assertTrue(
+            all(
+                boundary.overlapping_roles == ("rationale", "structure")
+                and boundary.assigned_role == "rationale"
+                and example.token_roles[boundary.token_index] == "rationale"
+                and example.loss_weights[boundary.token_index] == 0.05
+                for boundary in boundaries
+            )
+        )
+        debug = build_loss_mask_debug(example, tokenizer=tokenizer)
+        self.assertEqual(debug["invariants"]["mixed_boundary_token_count"], 3)
+        self.assertTrue(
+            debug["invariants"][
+                "exactly_one_rationale_ending_mixed_token_per_dimension"
+            ]
+        )
+        self.assertEqual(
+            [row["decoded_token"] for row in debug["mixed_boundary_tokens"]],
+            ['."', '."', '."'],
+        )
+
+    def test_unexpected_score_structure_overlap_is_rejected(self) -> None:
+        with self.assertRaisesRegex(
+            TokenizationError, "unexpected cross-role token overlap"
+        ):
+            encode_training_example(
+                build_training_sample(record()),
+                tokenizer=BoundaryMergingFakeTokenizer("score_start"),
+                prompt_version="writing_scoring_2026-07-20",
+                loss_weights=LOSS_WEIGHTS,
+            )
 
     def test_role_weighted_mass_is_calculated_exactly(self) -> None:
         example = encode_training_example(

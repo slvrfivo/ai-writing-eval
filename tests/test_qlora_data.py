@@ -44,6 +44,16 @@ class QLoRADataTests(unittest.TestCase):
             self.assertEqual(payload[dimension]["score"], score)
             self.assertEqual(payload[dimension]["rationale"], rationale_for(dimension, score))
         self.assertNotIn("average", target.text)
+        expected = (
+            '{"content":{"score":4,"rationale":'
+            + json.dumps(rationale_for("content", 4), ensure_ascii=False)
+            + '},"organization":{"score":4,"rationale":'
+            + json.dumps(rationale_for("organization", 4), ensure_ascii=False)
+            + '},"expression":{"score":3,"rationale":'
+            + json.dumps(rationale_for("expression", 3), ensure_ascii=False)
+            + "}}"
+        )
+        self.assertEqual(target.text, expected)
 
     def test_target_has_exactly_three_non_overlapping_score_spans(self) -> None:
         target = build_assistant_target(build_training_sample(self.record()).gold_scores)

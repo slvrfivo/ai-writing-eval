@@ -3,7 +3,7 @@
   "revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
   "prompt_version": "writing_scoring_2026-07-20",
   "target_construction_version": "rubric_general_v1",
-  "max_seq_length": null,
+  "max_seq_length": 2048,
   "quantization": {
     "load_in_4bit": true,
     "bnb_4bit_quant_type": "nf4",
@@ -11,8 +11,8 @@
     "bnb_4bit_use_double_quant": true
   },
   "score_loss_weight": 10.0,
-  "structure_loss_weight": 1.0,
-  "rationale_loss_weight": 0.1,
+  "structure_loss_weight": 0.25,
+  "rationale_loss_weight": 0.05,
   "lora": {
     "target_modules": "all-linear",
     "r": 16,

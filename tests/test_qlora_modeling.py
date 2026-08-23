@@ -34,12 +34,17 @@ class FakeParameter:
 
 
 class QLoRAModelingTests(unittest.TestCase):
-    def test_config_preserves_unselected_max_length_and_v1_weights(self) -> None:
+    def test_config_uses_final_length_and_score_focused_v1_weights(self) -> None:
         config = project_config()
-        self.assertIsNone(config.max_seq_length)
+        self.assertEqual(config.max_seq_length, 2048)
         self.assertEqual(
             config.loss_weights,
-            {"prompt": 0.0, "structure": 1.0, "score": 10.0, "rationale": 0.1},
+            {
+                "prompt": 0.0,
+                "structure": 0.25,
+                "score": 10.0,
+                "rationale": 0.05,
+            },
         )
         self.assertEqual(config.training["learning_rate"], 5e-5)
 

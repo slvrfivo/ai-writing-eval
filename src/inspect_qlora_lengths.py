@@ -15,6 +15,7 @@ try:
         calculate_role_token_statistics,
     )
     from .qlora.modeling import load_training_tokenizer
+    from .qlora.tokenization import MIXED_BOUNDARY_POLICY
     from .qlora.training import inspect_training_file
 except ImportError:  # python src/inspect_qlora_lengths.py
     from qlora.config import QLoRAConfig
@@ -24,6 +25,7 @@ except ImportError:  # python src/inspect_qlora_lengths.py
         calculate_role_token_statistics,
     )
     from qlora.modeling import load_training_tokenizer
+    from qlora.tokenization import MIXED_BOUNDARY_POLICY
     from qlora.training import inspect_training_file
 
 
@@ -78,6 +80,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "revision": config.revision,
         "dataset_size": len(prepared.examples),
         "target_construction_version": config.target_construction_version,
+        "mixed_boundary_token_policy": MIXED_BOUNDARY_POLICY,
         "max_seq_length_checked": config.max_seq_length,
         "token_length_stats": prepared.token_length_stats.as_dict(),
         "role_token_stats": calculate_role_token_statistics(

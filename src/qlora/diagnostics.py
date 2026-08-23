@@ -107,18 +107,31 @@ def build_loss_mask_debug(
             }
         )
 
-    cross_role_token_indices: list[int] = []
     unambiguous_structure_correct = True
     rationale_tokens_correct = True
     for index in range(example.prompt_token_count, example.token_length):
         spans = _overlapping_spans(example, example.token_offsets[index])
         roles = {span.role for span in spans}
-        if len(roles) > 1:
-            cross_role_token_indices.append(index)
-        elif roles == {"structure"}:
+        if roles == {"structure"}:
             unambiguous_structure_correct &= example.token_roles[index] == "structure"
         elif roles == {"rationale"}:
             rationale_tokens_correct &= example.token_roles[index] == "rationale"
+
+    mixed_boundary_tokens = [
+        {
+            "token_index": boundary.token_index,
+            "token_id": example.input_ids[boundary.token_index],
+            "decoded_token": _decode_token(
+                tokenizer, example.input_ids[boundary.token_index]
+            ),
+            "overlapping_roles": list(boundary.overlapping_roles),
+            "assigned_role": boundary.assigned_role,
+            "dimension": boundary.dimension,
+        }
+        for boundary in example.mixed_boundary_tokens
+    ]
+    expected_dimensions = [span.dimension for span in score_spans]
+    mixed_dimensions = [row["dimension"] for row in mixed_boundary_tokens]
 
     token_rows = [
         {
@@ -150,13 +163,17 @@ def build_loss_mask_debug(
             "all_score_spans_have_tokens": all_score_spans_have_tokens,
             "all_gold_score_tokens_have_score_role": all_score_tokens_correct,
             "score_surrounding_structure_tokens_correct": unambiguous_structure_correct,
-            "score_boundaries_token_aligned": not cross_role_token_indices,
             "rationale_tokens_have_rationale_role": rationale_tokens_correct,
             "prompt_tokens_all_weight_zero": prompt_all_zero,
             "assistant_tokens_exactly_one_role": assistant_exactly_one_role,
-            "cross_role_token_indices": cross_role_token_indices,
+            "mixed_boundary_token_count": len(mixed_boundary_tokens),
+            "mixed_boundary_dimensions": mixed_dimensions,
+            "exactly_one_rationale_ending_mixed_token_per_dimension": (
+                mixed_dimensions == expected_dimensions
+            ),
         },
         "score_spans": score_span_rows,
+        "mixed_boundary_tokens": mixed_boundary_tokens,
         "tokens": token_rows,
         "assistant_tokens": assistant_tokens,
     }

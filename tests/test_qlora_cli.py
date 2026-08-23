@@ -39,6 +39,17 @@ class QLoRACliTests(unittest.TestCase):
         self.assertEqual(args.max_seq_length, 3072)
         self.assertEqual(args.max_steps, 20)
 
+    def test_training_uses_configured_max_length_without_override(self) -> None:
+        args = parse_training_args(
+            [
+                "--input",
+                "train.jsonl",
+                "--output-dir",
+                "checkpoints/qlora-v1",
+            ]
+        )
+        self.assertIsNone(args.max_seq_length)
+
 
 if __name__ == "__main__":
     unittest.main()

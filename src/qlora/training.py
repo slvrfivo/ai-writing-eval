@@ -22,6 +22,7 @@ from .data import TrainingSample, iter_training_samples
 from .loss import weighted_trainer_class
 from .modeling import LoadedQLoRA, trainable_parameter_stats
 from .tokenization import (
+    MIXED_BOUNDARY_POLICY,
     TokenLengthStats,
     TokenizedExample,
     TokenizedTrainingDataset,
@@ -175,6 +176,7 @@ def run_qlora_training(
         "prompt_version": snapshot.version,
         "prompt_snapshot_sha256": snapshot.sha256,
         "target_construction_version": config.target_construction_version,
+        "mixed_boundary_token_policy": MIXED_BOUNDARY_POLICY,
         "loss_weights": dict(config.loss_weights),
         "quantization_config": dict(config.quantization),
         "lora_config": dict(config.lora),
