@@ -1,0 +1,7 @@
+-r requirements-gpu.txt
+
+# Provisional dependency: do not treat this pin as confirmed until the AIPub
+# server passes both the import smoke test and Qwen3 model-wrapping smoke test.
+# PEFT 0.16.0 includes Qwen3 support and fixes for the Transformers 4.53+
+# attention-mask changes.
+peft==0.16.0
