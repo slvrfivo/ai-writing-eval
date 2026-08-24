@@ -71,3 +71,34 @@
 - GT 2점은 주로 3점으로, GT 5점은 주로 4점으로 예측되는 regression-to-the-mean 현상이 남아 있다.
 - Rationale은 학습 target에 사용한 rubric template 형태로 크게 단순화되었다.
 - 다음 ablation은 train label만으로 mild class weighting을 적용하는 QLoRA v1b이다.
+
+## Qwen3-4B class-balanced QLoRA v1b negative ablation (2026-08-25)
+
+- 평가: full validation 400건
+- 변경: v1 설정을 유지하고 score token에 train label 기반 class balancing 적용
+
+### Validation 지표
+
+| Dimension | RMSE | Spearman |
+| --- | ---: | ---: |
+| Content | 0.5944325024761011 | 0.5149457041109735 |
+| Organization | 0.7659756849926764 | 0.5075662424977525 |
+| Expression | 0.5751358535163671 | 0.5341676427869871 |
+| Mean | 0.6451813469950481 | 0.5188931964652377 |
+
+### Prediction distribution
+
+| Dimension | Pred Distribution |
+| --- | --- |
+| Content | `{2: 11, 3: 242, 4: 147}` |
+| Organization | `{2: 13, 3: 234, 4: 147, 5: 6}` |
+| Expression | `{2: 6, 3: 87, 4: 301, 5: 6}` |
+
+### 결론
+
+- v1보다 overall 성능이 악화되었다.
+- Extreme score prediction은 증가했다.
+- Expression은 RMSE와 Spearman이 모두 개선되었다.
+- Content와 Organization은 모두 악화되었다.
+- Global class balancing은 over-correction으로 판단한다.
+- v1을 best overall checkpoint로 유지한다.
