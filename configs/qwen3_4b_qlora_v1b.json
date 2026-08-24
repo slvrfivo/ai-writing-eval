@@ -14,7 +14,7 @@
   "structure_loss_weight": 0.25,
   "rationale_loss_weight": 0.05,
   "class_balancing": {
-    "enabled": false,
+    "enabled": true,
     "method": "bounded_inverse_sqrt_v1",
     "clip_min": 0.75,
     "clip_max": 2.0

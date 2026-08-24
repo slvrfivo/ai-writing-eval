@@ -40,3 +40,34 @@
 - 전반적으로 over-scoring이 발생했으며, 특히 구성 영역의 calibration 편향이 크다.
 - Human score에 대한 상대적 ranking signal은 있으나 scoring scale calibration은 부족하다.
 - 다음 실험은 supervised adaptation / QLoRA로 진행한다.
+
+## Qwen3-4B weighted QLoRA v1 (2026-08-24)
+
+- 모델: `Qwen/Qwen3-4B-Instruct-2507`
+- 학습: train 2,000건, 1 epoch, NF4 4-bit, BF16 compute, weighted score-focused loss
+- 평가: validation 400건 전체
+
+### Validation 지표
+
+| Dimension | RMSE | Spearman |
+| --- | ---: | ---: |
+| Content | 0.5812486559124245 | 0.53258708712125 |
+| Organization | 0.750312434922946 | 0.524797525323729 |
+| Expression | 0.5837647214417808 | 0.5136796292092026 |
+| Mean | 0.6384419374257172 | 0.5236880805513939 |
+
+### Calibration
+
+| Dimension | GT Mean | Pred Mean | Pred Distribution |
+| --- | ---: | ---: | --- |
+| Content | 3.229 | 3.3475 | `{2: 5, 3: 251, 4: 144}` |
+| Organization | 3.286875 | 3.37 | `{2: 5, 3: 242, 4: 153}` |
+| Expression | 3.676875 | 3.78 | `{2: 3, 3: 82, 4: 315}` |
+
+### 관찰
+
+- Zero-shot에서 나타난 전반적인 over-scoring은 크게 완화되었다.
+- 예측이 3점과 4점으로 압축되어 1점과 5점 예측이 전혀 발생하지 않았다.
+- GT 2점은 주로 3점으로, GT 5점은 주로 4점으로 예측되는 regression-to-the-mean 현상이 남아 있다.
+- Rationale은 학습 target에 사용한 rubric template 형태로 크게 단순화되었다.
+- 다음 ablation은 train label만으로 mild class weighting을 적용하는 QLoRA v1b이다.

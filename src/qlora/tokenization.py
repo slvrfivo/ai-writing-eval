@@ -192,11 +192,22 @@ def encode_training_example(
     tokenizer: Any,
     prompt_version: str,
     loss_weights: Mapping[str, float],
+    score_class_weights: Mapping[str, Mapping[int, float]] | None = None,
     max_seq_length: int | None = None,
 ) -> TokenizedExample:
     """Apply the official chat template and map every token to an explicit role."""
     if set(loss_weights) != set(TOKEN_ROLES):
         raise TokenizationError(f"loss_weights must contain exactly {TOKEN_ROLES}")
+    if score_class_weights is not None:
+        if set(score_class_weights) != set(sample.gold_scores):
+            raise TokenizationError(
+                "score_class_weights dimensions must match gold score dimensions"
+            )
+        for dimension, class_weights in score_class_weights.items():
+            if set(class_weights) != {1, 2, 3, 4, 5}:
+                raise TokenizationError(
+                    f"score_class_weights[{dimension}] must contain classes 1..5"
+                )
 
     messages = build_messages(sample.prompt, sample.essay, version=prompt_version)
     target = build_assistant_target(sample.gold_scores)
@@ -265,7 +276,15 @@ def encode_training_example(
     ]
     if len(roles) != len(input_ids):
         raise TokenizationError("token role count does not match input_ids")
-    weights = [float(loss_weights[role]) for role in roles]
+    weights = []
+    for role, dimension in zip(roles, dimensions):
+        weight = float(loss_weights[role])
+        if role == "score" and score_class_weights is not None:
+            if dimension is None:
+                raise TokenizationError("score token is missing its dimension")
+            gold_class = sample.gold_scores[dimension]
+            weight *= float(score_class_weights[dimension][gold_class])
+        weights.append(weight)
 
     example = TokenizedExample(
         sample_id=sample.sample_id,

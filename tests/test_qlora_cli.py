@@ -16,11 +16,13 @@ class QLoRACliTests(unittest.TestCase):
                 "--max-seq-length",
                 "3072",
                 "--debug-first-sample",
+                "--class-balancing",
             ]
         )
         self.assertEqual(args.input, Path("train.jsonl"))
         self.assertEqual(args.max_seq_length, 3072)
         self.assertTrue(args.debug_first_sample)
+        self.assertTrue(args.class_balancing)
 
     def test_training_supports_twenty_step_benchmark(self) -> None:
         args = parse_training_args(
@@ -49,6 +51,18 @@ class QLoRACliTests(unittest.TestCase):
             ]
         )
         self.assertIsNone(args.max_seq_length)
+
+    def test_training_can_disable_class_balancing_from_cli(self) -> None:
+        args = parse_training_args(
+            [
+                "--input",
+                "train.jsonl",
+                "--output-dir",
+                "checkpoints/qlora-v1b",
+                "--no-class-balancing",
+            ]
+        )
+        self.assertFalse(args.class_balancing)
 
 
 if __name__ == "__main__":

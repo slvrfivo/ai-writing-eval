@@ -18,6 +18,7 @@ except ImportError:  # python src/train_qlora.py
     from llm.prompting import load_prompt_snapshot
 
 from .config import QLoRAConfig
+from .class_balancing import ClassBalanceResult, calculate_class_balance
 from .data import TrainingSample, iter_training_samples
 from .loss import weighted_trainer_class
 from .modeling import LoadedQLoRA, trainable_parameter_stats
@@ -39,6 +40,7 @@ RUN_METADATA_FILENAME = "run_metadata.json"
 class PreparedTrainingData:
     examples: list[TokenizedExample]
     token_length_stats: TokenLengthStats
+    class_balance: ClassBalanceResult
 
 
 def utc_now() -> str:
@@ -51,20 +53,29 @@ def prepare_training_data(
     tokenizer: Any,
     config: QLoRAConfig,
 ) -> PreparedTrainingData:
+    training_samples = list(samples)
+    class_balance = calculate_class_balance(
+        training_samples, config.class_balancing
+    )
     examples = [
         encode_training_example(
             sample,
             tokenizer=tokenizer,
             prompt_version=config.prompt_version,
             loss_weights=config.loss_weights,
+            score_class_weights=class_balance.final_weights,
             max_seq_length=config.max_seq_length,
         )
-        for sample in samples
+        for sample in training_samples
     ]
     stats = calculate_token_length_stats(
         [example.token_length for example in examples]
     )
-    return PreparedTrainingData(examples=examples, token_length_stats=stats)
+    return PreparedTrainingData(
+        examples=examples,
+        token_length_stats=stats,
+        class_balance=class_balance,
+    )
 
 
 def inspect_training_file(
@@ -178,6 +189,7 @@ def run_qlora_training(
         "target_construction_version": config.target_construction_version,
         "mixed_boundary_token_policy": MIXED_BOUNDARY_POLICY,
         "loss_weights": dict(config.loss_weights),
+        "class_balancing": prepared.class_balance.as_dict(),
         "quantization_config": dict(config.quantization),
         "lora_config": dict(config.lora),
         "training_config": dict(config.training),

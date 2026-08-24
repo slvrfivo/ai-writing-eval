@@ -59,6 +59,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="include an assistant-token loss-mask inspection for the first sample",
     )
+    parser.add_argument(
+        "--class-balancing",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="override class_balancing.enabled from config",
+    )
     return parser.parse_args(argv)
 
 
@@ -68,8 +74,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     reject_validation_path(input_path)
     if not input_path.is_file():
         raise FileNotFoundError(f"train JSONL does not exist: {input_path}")
-    config = QLoRAConfig.from_json(args.config.resolve()).with_max_seq_length(
-        args.max_seq_length
+    config = (
+        QLoRAConfig.from_json(args.config.resolve())
+        .with_max_seq_length(args.max_seq_length)
+        .with_class_balancing(args.class_balancing)
     )
     tokenizer = load_training_tokenizer(config)
     prepared = inspect_training_file(
@@ -86,6 +94,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "role_token_stats": calculate_role_token_statistics(
             prepared.examples, config.loss_weights
         ),
+        "class_balancing": prepared.class_balance.as_dict(),
     }
     if args.debug_first_sample:
         report["first_sample_loss_mask_debug"] = build_loss_mask_debug(

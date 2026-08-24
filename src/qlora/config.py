@@ -36,6 +36,7 @@ class QLoRAConfig:
     score_loss_weight: float
     structure_loss_weight: float
     rationale_loss_weight: float
+    class_balancing: dict[str, Any]
     lora: dict[str, Any]
     training: dict[str, Any]
 
@@ -54,6 +55,7 @@ class QLoRAConfig:
             score_loss_weight=payload.get("score_loss_weight"),
             structure_loss_weight=payload.get("structure_loss_weight"),
             rationale_loss_weight=payload.get("rationale_loss_weight"),
+            class_balancing=_object(payload, "class_balancing"),
             lora=_object(payload, "lora"),
             training=_object(payload, "training"),
         )
@@ -102,6 +104,28 @@ class QLoRAConfig:
             if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
                 raise QLoRAConfigError(f"{name} must be non-negative")
 
+        expected_class_balancing_keys = {
+            "enabled",
+            "method",
+            "clip_min",
+            "clip_max",
+        }
+        if set(self.class_balancing) != expected_class_balancing_keys:
+            raise QLoRAConfigError(
+                "class_balancing must contain enabled, method, clip_min, clip_max"
+            )
+        if not isinstance(self.class_balancing["enabled"], bool):
+            raise QLoRAConfigError("class_balancing.enabled must be boolean")
+        if self.class_balancing["method"] != "bounded_inverse_sqrt_v1":
+            raise QLoRAConfigError(
+                "class_balancing.method must be bounded_inverse_sqrt_v1"
+            )
+        if (
+            self.class_balancing["clip_min"] != 0.75
+            or self.class_balancing["clip_max"] != 2.0
+        ):
+            raise QLoRAConfigError("class_balancing clip bounds must be [0.75, 2.0]")
+
         required_lora = {
             "target_modules": "all-linear",
             "r": 16,
@@ -146,6 +170,29 @@ class QLoRAConfig:
             score_loss_weight=self.score_loss_weight,
             structure_loss_weight=self.structure_loss_weight,
             rationale_loss_weight=self.rationale_loss_weight,
+            class_balancing=dict(self.class_balancing),
+            lora=dict(self.lora),
+            training=dict(self.training),
+        )
+        updated.validate()
+        return updated
+
+    def with_class_balancing(self, enabled: bool | None) -> "QLoRAConfig":
+        if enabled is None:
+            return self
+        if not isinstance(enabled, bool):
+            raise QLoRAConfigError("class balancing override must be boolean")
+        updated = QLoRAConfig(
+            model_id=self.model_id,
+            revision=self.revision,
+            prompt_version=self.prompt_version,
+            target_construction_version=self.target_construction_version,
+            max_seq_length=self.max_seq_length,
+            quantization=dict(self.quantization),
+            score_loss_weight=self.score_loss_weight,
+            structure_loss_weight=self.structure_loss_weight,
+            rationale_loss_weight=self.rationale_loss_weight,
+            class_balancing={**self.class_balancing, "enabled": enabled},
             lora=dict(self.lora),
             training=dict(self.training),
         )

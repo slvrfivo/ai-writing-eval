@@ -272,15 +272,50 @@ class QLoRATokenizationTests(unittest.TestCase):
 
         self.assertEqual(report["sample_count"], 2)
         self.assertEqual(report["total_tokens"], 2 * example.token_length)
-        self.assertEqual(report["supervised_weighted_mass"], total_mass)
+        self.assertAlmostEqual(report["supervised_weighted_mass"], total_mass)
         for role in LOSS_WEIGHTS:
             role_report = report["roles"][role]
             self.assertEqual(role_report["tokens"], 2 * counts[role])
             self.assertEqual(role_report["mean_tokens_per_sample"], counts[role])
-            self.assertEqual(role_report["weighted_mass"], expected_mass[role])
+            self.assertAlmostEqual(
+                role_report["weighted_mass"], expected_mass[role]
+            )
             self.assertAlmostEqual(
                 role_report["weighted_share"], expected_mass[role] / total_mass
             )
+
+    def test_class_multiplier_applies_only_to_score_tokens_by_dimension(self) -> None:
+        class_weights = {
+            dimension: {label: 1.0 for label in range(1, 6)}
+            for dimension in ("content", "organization", "expression")
+        }
+        class_weights["content"][4] = 1.5
+        class_weights["organization"][4] = 0.8
+        class_weights["expression"][3] = 2.0
+        example = encode_training_example(
+            build_training_sample(record()),
+            tokenizer=OffsetFakeTokenizer(),
+            prompt_version="writing_scoring_2026-07-20",
+            loss_weights=LOSS_WEIGHTS,
+            score_class_weights=class_weights,
+        )
+
+        expected_score_weights = {
+            "content": 15.0,
+            "organization": 8.0,
+            "expression": 20.0,
+        }
+        for role, dimension, weight in zip(
+            example.token_roles, example.token_dimensions, example.loss_weights
+        ):
+            if role == "score":
+                self.assertEqual(weight, expected_score_weights[dimension])
+            elif role == "structure":
+                self.assertEqual(weight, 0.25)
+            elif role == "rationale":
+                self.assertEqual(weight, 0.05)
+            else:
+                self.assertEqual(weight, 0.0)
 
     def test_max_length_fails_without_truncating(self) -> None:
         with self.assertRaises(SequenceLengthError) as context:

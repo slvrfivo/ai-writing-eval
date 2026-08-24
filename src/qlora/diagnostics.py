@@ -30,9 +30,12 @@ def calculate_role_token_statistics(
             counts[role] += 1
 
     total_tokens = sum(counts.values())
-    weighted_masses = {
-        role: counts[role] * float(loss_weights[role]) for role in TOKEN_ROLES
-    }
+    weighted_masses = {role: 0.0 for role in TOKEN_ROLES}
+    for example in examples:
+        if len(example.loss_weights) != example.token_length:
+            raise ValueError("token loss weight count does not match token length")
+        for role, weight in zip(example.token_roles, example.loss_weights):
+            weighted_masses[role] += float(weight)
     supervised_weighted_mass = sum(weighted_masses.values())
     if supervised_weighted_mass <= 0:
         raise ValueError("supervised weighted mass must be positive")

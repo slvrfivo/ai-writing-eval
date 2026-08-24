@@ -18,6 +18,12 @@ def project_config() -> QLoRAConfig:
     )
 
 
+def project_v1b_config() -> QLoRAConfig:
+    return QLoRAConfig.from_json(
+        Path(__file__).resolve().parents[1] / "configs" / "qwen3_4b_qlora_v1b.json"
+    )
+
+
 class FakeCuda:
     @staticmethod
     def is_available() -> bool:
@@ -47,6 +53,20 @@ class QLoRAModelingTests(unittest.TestCase):
             },
         )
         self.assertEqual(config.training["learning_rate"], 5e-5)
+        self.assertFalse(config.class_balancing["enabled"])
+
+    def test_v1b_only_enables_class_balancing(self) -> None:
+        v1 = project_config()
+        v1b = project_v1b_config()
+        self.assertTrue(v1b.class_balancing["enabled"])
+        self.assertEqual(
+            {**v1.class_balancing, "enabled": True}, v1b.class_balancing
+        )
+        for field in v1.__dataclass_fields__:
+            if field != "class_balancing":
+                self.assertEqual(getattr(v1, field), getattr(v1b, field))
+        self.assertTrue(v1.with_class_balancing(True).class_balancing["enabled"])
+        self.assertFalse(v1b.with_class_balancing(False).class_balancing["enabled"])
 
     def test_loader_uses_pinned_revision_exact_qlora_options_and_no_merge(self) -> None:
         calls: dict[str, object] = {}
