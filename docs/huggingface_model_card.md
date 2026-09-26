@@ -85,6 +85,23 @@ This setting was added after repetitive degeneration was observed on a small sub
 
 If a serving system overrides the model's generation configuration, preserve `repetition_penalty=1.05` to reproduce the final competition serving setup.
 
+## vLLM serving example
+
+A minimal serving command is:
+
+~~~bash
+vllm serve slvrfivo/qwen3-4b-writing-eval-v1-merged \
+  --dtype bfloat16
+~~~
+
+For competition-equivalent scoring, use the versioned prompt in the source repository:
+
+~~~text
+prompts/official/writing_scoring_2026-07-20/
+~~~
+
+The repository's prompt builder and inference pipeline show the exact message construction. If the serving layer does not honor the model's saved `generation_config.json`, pass `repetition_penalty=1.05` explicitly in the request/server generation settings.
+
 ## Output format
 
 The expected output is one JSON object:
@@ -119,8 +136,11 @@ Each score must be an integer from 1 to 5.
 - The specific contribution of weighted token loss is not isolated because a uniform-loss QLoRA ablation was not performed.
 - Performance outside the competition domain and rubric is unknown.
 
-## Data and terms
+## Data, license, and terms
 
-Competition data is not redistributed in the source repository. The base model is Qwen3-4B-Instruct-2507; consult the base model page and competition materials for their respective terms.
+- Base model: `Qwen/Qwen3-4B-Instruct-2507` (Apache-2.0)
+- Source code in the GitHub repository: Apache License 2.0
+- Competition data: not redistributed; subject to the competition's own terms
+- Official competition materials: subject to their respective terms
 
-This model is provided as a competition/research artifact, not as a validated high-stakes scoring system.
+This model artifact is provided as a competition/research artifact, not as a validated high-stakes scoring system. The model card does not grant additional rights over competition data or third-party materials.
