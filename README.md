@@ -227,6 +227,14 @@ python src/export_merged_hf.py \
 
 Environment details and reproducibility notes: [docs/reproducibility.md](docs/reproducibility.md)
 
+## Testing
+
+GitHub Actions runs the CPU unit-test suite on every pull request and push to `master`. The current suite contains **85 tests**.
+
+~~~bash
+python -m unittest discover -s tests -v
+~~~
+
 ## Repository Layout
 
 ~~~text
