@@ -246,6 +246,49 @@ def _runtime_versions(torch_module: Any) -> dict[str, str]:
     }
 
 
+def validate_submission_generation_overrides(
+    overrides: Mapping[str, Any],
+) -> dict[str, float]:
+    """Validate the small set of generation overrides used for final submission."""
+    allowed = {"repetition_penalty"}
+    unknown = sorted(set(overrides) - allowed)
+    if unknown:
+        raise ExportError(f"unsupported submission generation fields: {unknown}")
+
+    value = overrides.get("repetition_penalty")
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+        raise ExportError("repetition_penalty must be a positive number")
+    return {"repetition_penalty": float(value)}
+
+
+def load_submission_generation_overrides(path: Path) -> dict[str, float]:
+    """Load reproducible final-serving generation overrides from JSON."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ExportError(f"submission generation config does not exist: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ExportError(f"submission generation config is invalid JSON: {path}") from exc
+
+    if not isinstance(payload, dict):
+        raise ExportError("submission generation config must be a JSON object")
+    overrides = payload.get("generation_config")
+    if not isinstance(overrides, dict):
+        raise ExportError("submission generation config needs a generation_config object")
+    return validate_submission_generation_overrides(overrides)
+
+
+def apply_submission_generation_overrides(
+    generation_config: Any,
+    overrides: Mapping[str, Any],
+) -> dict[str, float]:
+    """Apply validated submission overrides to a Transformers generation config."""
+    validated = validate_submission_generation_overrides(overrides)
+    for name, value in validated.items():
+        setattr(generation_config, name, value)
+    return validated
+
+
 def load_smoke_samples(path: Path, count: int) -> list[InferenceSample]:
     if isinstance(count, bool) or not isinstance(count, int) or count <= 0:
         raise ExportError("smoke sample count must be a positive integer")
@@ -423,6 +466,7 @@ def export_merged_model(
     validation_input: Path,
     inference_config: InferenceConfig,
     project_root: Path,
+    submission_generation_overrides: Mapping[str, Any] | None = None,
     smoke_sample_count: int = DEFAULT_SMOKE_SAMPLES,
     max_shard_size: str = DEFAULT_MAX_SHARD_SIZE,
     compare_quantized: bool = False,
@@ -441,6 +485,11 @@ def export_merged_model(
     if inference_config.model_id != BASE_MODEL_ID:
         raise ExportError("inference config model_id does not match the pinned base")
     inference_config.validate()
+    generation_overrides = (
+        validate_submission_generation_overrides(submission_generation_overrides)
+        if submission_generation_overrides
+        else {}
+    )
     resolved_output = validate_output_path(output_path, allowed_root=allowed_output_root)
     resolved_adapter = adapter_path.expanduser().resolve()
     resolved_validation = validation_input.expanduser().resolve()
@@ -497,6 +546,7 @@ def export_merged_model(
         "prompt_version": snapshot.version,
         "prompt_snapshot_sha256": snapshot.sha256,
         "generation_config": inference_config.generation_metadata(),
+        "submission_generation_overrides": generation_overrides,
         "validation": None,
         "comparison": {"enabled": False},
     }
@@ -538,6 +588,10 @@ def export_merged_model(
         generation_config = getattr(merged_model, "generation_config", None)
         if generation_config is None:
             raise ExportValidationError("merged model has no generation_config")
+        if generation_overrides:
+            apply_submission_generation_overrides(
+                generation_config, generation_overrides
+            )
         generation_config.save_pretrained(resolved_output)
         tokenizer.save_pretrained(resolved_output)
         saved_files = _validate_saved_files(resolved_output)
