@@ -304,6 +304,7 @@ class ExportMergedTests(unittest.TestCase):
                     validation_input=validation,
                     inference_config=inference_config(),
                     project_root=root,
+                    submission_generation_overrides={"repetition_penalty": 1.05},
                     allowed_output_root=root / "submissions",
                     resource_report=safe_resources(),
                     git_state={"commit": "a" * 40, "dirty": False},
