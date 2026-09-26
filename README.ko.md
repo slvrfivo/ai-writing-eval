@@ -187,6 +187,14 @@ python src/evaluate.py \
   --require-rationale
 ~~~
 
+## 테스트
+
+GitHub Actions에서 pull request와 `master` push마다 CPU unit test를 실행합니다. 현재 테스트는 **85개**입니다.
+
+~~~bash
+python -m unittest discover -s tests -v
+~~~
+
 ## 한계
 
 - 학습 데이터는 2,000건입니다.
