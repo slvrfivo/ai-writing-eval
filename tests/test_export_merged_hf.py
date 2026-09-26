@@ -19,6 +19,7 @@ from src.llm.exporting import (
     ResourceSafetyError,
     compare_smoke_scores,
     export_merged_model,
+    load_submission_generation_overrides,
     validate_output_path,
 )
 from src.llm.pipeline import InferenceConfig
@@ -129,7 +130,19 @@ class FakeGenerationConfig:
 
     def save_pretrained(self, output: Path) -> None:
         self.calls["generation_config_saved"] = str(output)
-        (output / "generation_config.json").write_text("{}", encoding="utf-8")
+        self.calls["saved_repetition_penalty"] = getattr(
+            self, "repetition_penalty", None
+        )
+        (output / "generation_config.json").write_text(
+            json.dumps(
+                {
+                    "repetition_penalty": getattr(
+                        self, "repetition_penalty", None
+                    )
+                }
+            ),
+            encoding="utf-8",
+        )
 
 
 class FakeTokenizer:
@@ -262,6 +275,7 @@ class ExportMergedTests(unittest.TestCase):
                     validation_input=validation,
                     inference_config=inference_config(),
                     project_root=root,
+                    submission_generation_overrides={"repetition_penalty": 1.05},
                     allowed_output_root=root / "submissions",
                     resource_report=unsafe,
                     adapter_inspector=lambda *args, **kwargs: {
@@ -318,6 +332,11 @@ class ExportMergedTests(unittest.TestCase):
             self.assertEqual(calls["peft_load"]["adapter_path"], str(adapter.resolve()))
             self.assertFalse(calls["peft_load"]["is_trainable"])
             self.assertEqual(calls["merge"], {"safe_merge": True})
+            self.assertEqual(calls["saved_repetition_penalty"], 1.05)
+            self.assertEqual(
+                metadata["submission_generation_overrides"],
+                {"repetition_penalty": 1.05},
+            )
             self.assertEqual(
                 calls["model_save"],
                 {
@@ -346,6 +365,24 @@ class ExportMergedTests(unittest.TestCase):
                 (output / "export_metadata.json").read_text(encoding="utf-8")
             )
             self.assertEqual(stored["status"], "completed")
+
+    def test_submission_generation_config_loader(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "submission_generation.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "generation_config": {
+                            "repetition_penalty": 1.05
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                load_submission_generation_overrides(path),
+                {"repetition_penalty": 1.05},
+            )
 
     def test_score_comparison_reports_dimension_deltas(self) -> None:
         merged = {
