@@ -1,24 +1,24 @@
-# 실험 기록
+# Experiment Log
 
-모든 지표는 `src/evaluate.py`의 공식 평가 로직을 사용한다. 예측 실수는 `ROUND_HALF_UP`으로 정수화하며, `score.average`는 평가하지 않는다. `undefined`는 공식 정수화 후 예측 순위에 분산이 없어 Spearman이 수학적으로 정의되지 않음을 뜻한다.
+All metrics use the official evaluation logic implemented in `src/evaluate.py`. Predicted scores are converted to integers with `ROUND_HALF_UP`, and `score.average` is not evaluated. `undefined` means Spearman correlation is mathematically undefined because the rounded predictions have zero rank variance.
 
-| 날짜 | 실험 이름 | 사용한 방법 | Content RMSE | Organization RMSE | Expression RMSE | 평균 RMSE | Content Spearman | Organization Spearman | Expression Spearman | 평균 Spearman | 핵심 해석 |
+| Date | Experiment | Method | Content RMSE | Organization RMSE | Expression RMSE | Mean RMSE | Content Spearman | Organization Spearman | Expression Spearman | Mean Spearman | Key interpretation |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| 2026-08-21 | Global Mean Baseline | Train의 영역별 전체 평균을 모든 validation 샘플에 적용 | 0.691990 | 0.916089 | 0.753015 | 0.787031 | undefined | undefined | undefined | undefined | Train 평균은 3.277750/3.337375/3.672625이고 공식 정수화 후 모든 글에 3/3/4를 예측한다. 상수 예측이므로 순위 상관은 정의되지 않는다. |
-| 2026-08-21 | Prompt Mean Baseline | Train의 prompt_num별 영역 평균을 적용하고 미관측 prompt는 global mean으로 fallback | 0.691990 | 0.916089 | 0.753015 | 0.787031 | undefined | undefined | undefined | undefined | Q1~Q9의 원시 평균은 다르지만 공식 정수화 후 모두 3/3/4가 되어 Global Mean과 완전히 동일하다. fallback 사용은 0건이다. |
+| 2026-08-21 | Global Mean Baseline | Apply the train-set mean for each dimension to every validation sample | 0.691990 | 0.916089 | 0.753015 | 0.787031 | undefined | undefined | undefined | undefined | Train means are 3.277750 / 3.337375 / 3.672625; after official rounding, every essay receives 3 / 3 / 4. Spearman is undefined because the predictions are constant. |
+| 2026-08-21 | Prompt Mean Baseline | Apply per-`prompt_num` train means; fall back to the global mean for unseen prompts | 0.691990 | 0.916089 | 0.753015 | 0.787031 | undefined | undefined | undefined | undefined | Raw means differ across Q1–Q9, but official rounding maps all of them to 3 / 3 / 4, making this identical to the Global Mean baseline. No fallback cases occurred. |
 
-상세 train 평균과 prompt_num별 평균은 `outputs/baselines/baseline_summary.md`에 저장한다. `outputs/`는 재생성 가능한 산출물이므로 Git에서 제외한다.
+Detailed global and per-`prompt_num` means are written to `outputs/baselines/baseline_summary.md`. The `outputs/` directory is excluded from Git because it contains reproducible artifacts.
 
-## Qwen3-4B zero-shot 기준선 (2026-08-23)
+## Qwen3-4B zero-shot baseline (2026-08-23)
 
-- 모델: `Qwen/Qwen3-4B-Instruct-2507`
-- revision: `cdbee75f17c01a7cc42f958dc650907174af0554`
-- 추론 설정: 공식 대회 prompt, NF4 4-bit, BF16 compute, `max_new_tokens=1024`, `do_sample=False`, `batch_size=1`
-- 실행 환경: NVIDIA A100 MIG 1g, 사용 가능 VRAM 9.5 GiB
-- 검증 결과: 전체 400건 중 유효 예측 399건, parse 성공률 99.75%, truncation 0건, invalid JSON 1건
-- 실패 원인: JSON에서 유효하지 않은 escape `\'`가 생성되었다. 아래 진단 지표에서는 이 1건을 제외했다.
+- Model: `Qwen/Qwen3-4B-Instruct-2507`
+- Revision: `cdbee75f17c01a7cc42f958dc650907174af0554`
+- Inference: official competition prompt, NF4 4-bit, BF16 compute, `max_new_tokens=1024`, `do_sample=False`, `batch_size=1`
+- Hardware: NVIDIA A100 MIG 1g, approximately 9.5 GiB usable VRAM
+- Validation: 399 valid predictions out of 400, 99.75% parse success, 0 truncations, 1 invalid JSON output
+- Failure case: the model generated an invalid JSON escape (`\'`). The metrics below exclude that single sample.
 
-### 399건 유효 예측 지표
+### Metrics on 399 valid predictions
 
 | Dimension | RMSE | Spearman |
 | --- | ---: | ---: |
@@ -35,19 +35,19 @@
 | Organization | 3.287593984962406 | 4.734335839598997 | `{3: 11, 4: 84, 5: 304}` |
 | Expression | 3.676065162907268 | 3.974937343358396 | `{2: 1, 3: 35, 4: 336, 5: 27}` |
 
-### 관찰
+### Observations
 
-- 전반적으로 over-scoring이 발생했으며, 특히 구성 영역의 calibration 편향이 크다.
-- Human score에 대한 상대적 ranking signal은 있으나 scoring scale calibration은 부족하다.
-- 다음 실험은 supervised adaptation / QLoRA로 진행한다.
+- The model consistently over-scored essays, with the largest calibration bias in Organization.
+- The predictions contained some relative ranking signal, but score-scale calibration was poor.
+- The next experiment therefore moved to supervised adaptation with QLoRA.
 
 ## Qwen3-4B weighted QLoRA v1 (2026-08-24)
 
-- 모델: `Qwen/Qwen3-4B-Instruct-2507`
-- 학습: train 2,000건, 1 epoch, NF4 4-bit, BF16 compute, weighted score-focused loss
-- 평가: validation 400건 전체
+- Model: `Qwen/Qwen3-4B-Instruct-2507`
+- Training: 2,000 train samples, 1 epoch, NF4 4-bit, BF16 compute, score-focused weighted token loss
+- Evaluation: full validation set of 400 samples
 
-### Validation 지표
+### Validation metrics
 
 | Dimension | RMSE | Spearman |
 | --- | ---: | ---: |
@@ -64,20 +64,20 @@
 | Organization | 3.286875 | 3.37 | `{2: 5, 3: 242, 4: 153}` |
 | Expression | 3.676875 | 3.78 | `{2: 3, 3: 82, 4: 315}` |
 
-### 관찰
+### Observations
 
-- Zero-shot에서 나타난 전반적인 over-scoring은 크게 완화되었다.
-- 예측이 3점과 4점으로 압축되어 1점과 5점 예측이 전혀 발생하지 않았다.
-- GT 2점은 주로 3점으로, GT 5점은 주로 4점으로 예측되는 regression-to-the-mean 현상이 남아 있다.
-- Rationale은 학습 target에 사용한 rubric template 형태로 크게 단순화되었다.
-- 다음 ablation은 train label만으로 mild class weighting을 적용하는 QLoRA v1b이다.
+- The broad over-scoring seen in zero-shot inference was substantially reduced.
+- Predictions were compressed around scores 3 and 4; no 1-point or 5-point predictions were produced.
+- Ground-truth 2s were usually predicted as 3, while ground-truth 5s were usually predicted as 4, indicating regression toward the mean.
+- Rationales became much simpler and followed the rubric-template style used to construct the training targets.
+- The next ablation tested mild class weighting derived only from the training-label distribution.
 
 ## Qwen3-4B class-balanced QLoRA v1b negative ablation (2026-08-25)
 
-- 평가: full validation 400건
-- 변경: v1 설정을 유지하고 score token에 train label 기반 class balancing 적용
+- Evaluation: full validation set of 400 samples
+- Change from v1: keep the v1 configuration and add train-label-based class balancing to score-token weights
 
-### Validation 지표
+### Validation metrics
 
 | Dimension | RMSE | Spearman |
 | --- | ---: | ---: |
@@ -94,14 +94,14 @@
 | Organization | `{2: 13, 3: 234, 4: 147, 5: 6}` |
 | Expression | `{2: 6, 3: 87, 4: 301, 5: 6}` |
 
-### 결론
+### Conclusion
 
-- v1보다 overall 성능이 악화되었다.
-- Extreme score prediction은 증가했다.
-- Expression은 RMSE와 Spearman이 모두 개선되었다.
-- Content와 Organization은 모두 악화되었다.
-- Global class balancing은 over-correction으로 판단한다.
-- v1을 best overall checkpoint로 유지한다.
+- Overall performance was worse than v1.
+- Extreme-score predictions became more frequent.
+- Expression improved on both RMSE and Spearman.
+- Content and Organization both degraded.
+- The global class-balancing scheme appears to have over-corrected.
+- v1 remained the best overall checkpoint.
 
 ## Official competition results (2026-08-25 to 2026-09-23)
 
@@ -113,16 +113,15 @@ Selected submission:
 - Official preliminary LLM Judge: **3.0337**
 - Preliminary leaderboard: **49th of 53 teams**
 - Arena qualification: top 50 models advanced
-- AI Malpyeong Arena: **842 points, 44th of 50 Arena models**
+- AI말평 Arena: **842 points, 44th of 50 Arena models**
 
 The selected competition artifact was the merged BF16 Hugging Face model:
 
 https://huggingface.co/slvrfivo/qwen3-4b-writing-eval-v1-merged
 
-During final serving validation, repetitive degeneration was observed on a small subset of merged-model generations. The final Hugging Face artifact therefore set repetition_penalty=1.05 in generation_config.json. The repository records this submission-time override in configs/submission_generation.json.
+During final serving validation, repetitive degeneration was observed on a small subset of merged-model generations. The final Hugging Face artifact therefore set `repetition_penalty=1.05` in `generation_config.json`. The repository records this submission-time override in `configs/submission_generation.json`.
 
 Official references:
 
 - Preliminary leaderboard: https://kli.korean.go.kr/benchmark/taskOrdtm/taskLeaderBoard.do?clCd=ING_TASK&subMenuId=sub04&taskOrdtmId=205
 - Arena overview: https://kli.korean.go.kr/taskOrdtm/taskList.do?clCd=END_TASK&subMenuId=sub01&taskOrdtmId=215
-
