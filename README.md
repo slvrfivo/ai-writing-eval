@@ -1,5 +1,7 @@
 # Qwen3-4B + QLoRA for Korean Argumentative Essay Scoring
 
+[한국어 README](README.ko.md)
+
 Built for the 2026 **National Institute of Korean Language (NIKL) AI말평 writing-scoring evaluation**.
 
 QLoRA fine-tuning with a score-focused weighted token objective reduced validation RMSE to **0.638** (mean baseline: **0.787**, zero-shot: **1.161**) and raised Spearman from **0.275** to **0.524**. On the hidden official test set, the final submission scored **RMSE 0.621 / Spearman 0.570**.
