@@ -1,172 +1,407 @@
-# 2026 국립국어원 AI말평 글쓰기 채점 능력 평가
+# Korean Argumentative Essay Scoring with QLoRA
 
-2026 국립국어원 AI말평의 **글쓰기 채점 능력 평가**를 위한 프로젝트입니다.
+An end-to-end Korean argumentative essay scoring project developed for the 2026 National Institute of Korean Language (NIKL) AI Malpyeong Writing Scoring Evaluation.
 
-현재 단계에서는 공식 규칙 정리와 train/validation 탐색적 데이터 분석(EDA)까지만 수행합니다. 모델 다운로드, LLM 추론, 파인튜닝 코드는 포함하지 않습니다.
+Given a writing prompt and an argumentative essay, the model predicts 1–5 scores for Content, Organization, and Expression and generates a Korean rationale for each dimension in a strict JSON format.
 
-## 대회 핵심 규칙
+The project starts from a Qwen3-4B zero-shot baseline, applies 4-bit QLoRA with a score-focused weighted token loss, evaluates a class-balanced ablation, merges the selected LoRA adapter into standalone BF16 weights, and validates the final Hugging Face artifact for competition serving.
 
-아래 내용은 `docs/`의 과제 기술서, Docker Image 제출 규정, Hugging Face URL 제출 규정을 기준으로 정리했다. 공식 [AI말평 과제 페이지](https://kli.korean.go.kr/benchmark/taskOrdtm/taskList.do?taskOrdtmId=205)도 함께 참고한다. 문서 간 충돌이 있으면 날짜가 더 최신인 공지를 우선한다.
+- **Base model:** Qwen/Qwen3-4B-Instruct-2507
+- **Fine-tuning:** 4-bit NF4 QLoRA
+- **Best local validation:** RMSE **0.6384** / Spearman **0.5237**
+- **Official preliminary evaluation:** RMSE **0.6213** / Spearman **0.5697** / LLM Judge **3.0337**
+- **Preliminary leaderboard:** **49th of 53 teams**
+- **AI Malpyeong Arena:** **842 points / 44th of 50 Arena models**
+- **Deployment:** merged BF16 Hugging Face model
+- **Model:** https://huggingface.co/slvrfivo/qwen3-4b-writing-eval-v1-merged
 
-### 입력
+## Results
 
-- 한 편의 한국어 논증적 글에 대한 주제(`prompt_text`)와 본문(`essay_text`)이 모델 입력이다.
-- 제공 JSONL에서는 각각 `prompt`, `essay` 필드에 해당한다.
-- 데이터 규모는 train 2,000건, validation 400건, 비공개 test 400건이다.
+### Local validation
 
-### 출력
+| Model | RMSE ↓ | Spearman ↑ | Notes |
+|---|---:|---:|---|
+| Statistical baseline | 0.7870 | undefined* | Rounded prediction collapses to 3 / 3 / 4 |
+| Qwen3-4B zero-shot | 1.1612 | 0.2753 | 399 / 400 valid predictions |
+| **Weighted QLoRA v1** | **0.6384** | **0.5237** | Selected local checkpoint |
+| Class-balanced QLoRA v1b | 0.6452 | 0.5189 | Negative ablation |
 
-- `content`(내용), `organization`(구성), `expression`(표현) 세 영역을 모두 평가한다.
-- 모델 출력은 코드 블록이나 마크다운이 아닌 JSON 객체 하나여야 한다.
-- 영역별 `score`는 1~5 범위의 **정수**이며, `rationale`은 실제 essay에 근거한 한국어 설명이어야 한다.
-- 실수 점수를 출력하면 2026-08-06 공지에 따라 사사오입하여 정수로 변환한 뒤 평가한다.
-- 영역을 서로 독립적으로 판단하고, 글에 없는 내용을 근거로 만들지 않아야 한다.
-- 출력 파싱 실패 시 2회 재시도한 뒤에도 실패하면 0점 처리한다.
+*The statistical baseline produces a constant prediction after official rounding, so the prediction ranks have zero variance and Spearman correlation is mathematically undefined.
 
-```json
+Compared with the zero-shot baseline, weighted QLoRA reduced mean validation RMSE from **1.1612 to 0.6384** and increased mean Spearman correlation from **0.2753 to 0.5237**.
+
+The zero-shot model strongly over-scored essays, especially for Organization. QLoRA substantially improved calibration, although the selected model still concentrated predictions around scores 3 and 4.
+
+The class-balanced ablation generated more rare extreme-score predictions but slightly degraded overall RMSE and Spearman, so the original weighted QLoRA v1 checkpoint was retained.
+
+Detailed experiment logs are available in [reports/experiments.md](reports/experiments.md).
+
+### Official competition evaluation
+
+| Evaluation | RMSE ↓ | Spearman ↑ | LLM Judge | Result |
+|---|---:|---:|---:|---|
+| Preliminary leaderboard | **0.6213** | **0.5697** | **3.0337** | **49 / 53 teams** |
+| AI Malpyeong Arena | — | — | — | **842 points / 44 / 50 models** |
+
+The official preliminary stage used RMSE, Spearman correlation, and an LLM Judge. The top 50 models advanced to the Arena stage, where Korean-language experts compared model-generated scores and rationales.
+
+Official task page: https://kli.korean.go.kr/benchmark/taskOrdtm/taskList.do?taskOrdtmId=205
+
+Arena overview: https://kli.korean.go.kr/taskOrdtm/taskList.do?clCd=END_TASK&subMenuId=sub01&taskOrdtmId=215
+
+## Task
+
+The input consists of:
+
+- a writing prompt
+- a completed Korean argumentative essay
+
+The model returns one JSON object with independent scores and rationales for Content, Organization, and Expression.
+
+~~~json
 {
-  "content": {"score": 1, "rationale": "내용 판단 근거"},
-  "organization": {"score": 1, "rationale": "구성 판단 근거"},
-  "expression": {"score": 1, "rationale": "표현 판단 근거"}
+  "content": {
+    "score": 4,
+    "rationale": "주장과 근거가 주제에 맞게 제시되어 있으나 일부 근거의 구체성이 부족하다."
+  },
+  "organization": {
+    "score": 3,
+    "rationale": "전체적인 구조는 갖추고 있지만 문단 간 연결이 다소 자연스럽지 않다."
+  },
+  "expression": {
+    "score": 4,
+    "rationale": "대체로 적절한 어휘와 문장을 사용했으나 일부 표현이 반복된다."
+  }
 }
-```
+~~~
 
-### 평가 지표
+Each score must be within the 1–5 range.
 
-- 점수의 절대 오차: RMSE, 비중 45%
-- 점수의 상대 순위: Spearman 순위 상관계수, 비중 45%
-- 점수와 근거의 정성 평가: LLM Judge(Qwen3.6-35B-A3B, 4-bit Q4_K_M GGUF), 비중 10%
-- 각 지표에서 content·organization·expression 결과를 평균하고, 지표별 순위를 0~1로 정규화한 뒤 비중을 적용한다.
-- 모델이 실수 점수를 출력한 경우에는 사사오입으로 정수화된 점수를 기준으로 RMSE와 Spearman을 계산한다.
-- 전체 대회 단계는 순위표 기반 정량 평가, 말평 아레나 전문가 상대 평가, 발표 평가로 구성된다.
+## Approach
 
-### 추론 조건
+### 1. Reproduce the competition evaluator
 
-- 고정값: `temperature=0.0`, `top_p=1.0`, `seed=42`
-- 평가 서버 설정 기준 최대 생성 길이: `max_tokens=2048`
-- stop 문자열: `"Q:"`, `"User:"`
-- 긴 입력을 포함한 여러 요청에 안정적으로 응답해야 한다.
+Before fine-tuning, the competition scoring behavior was reproduced locally in src/evaluate.py.
 
-### GPU 및 모델 제약
+The evaluator:
 
-- 전체 추론은 단일 NVIDIA L40S 48GB GPU 1장 안에서 독립적으로 실행 가능해야 한다.
-- 14B 이하 모델을 권장한다.
-- 여러 모델의 순차 실행이나 앙상블은 허용되지만 동일한 단일 GPU 제약 안에서 완료되어야 한다.
-- OpenAI API 같은 외부 API 호출 모델과 비공개 모델은 제출할 수 없다.
-- 사용 모델과 코드의 라이선스에 문제가 없어야 한다.
+- validates the prediction JSON structure,
+- evaluates Content, Organization, and Expression independently,
+- rejects predictions outside the 1–5 range,
+- rounds real-valued predictions with ROUND_HALF_UP,
+- computes RMSE for absolute scoring error,
+- computes Spearman correlation for relative ranking,
+- handles tied ranks using average ranks.
 
-### 제출 방식
+This matters because the training labels contain fractional scores, while the official evaluation rounds model predictions before computing the quantitative metrics.
 
-- 팀당 예선 모델 제출은 원칙적으로 총 4회이며, 정상 제출 후 다음 제출까지 72시간을 기다려야 한다. 평가 자체가 정상 진행되지 않은 경우에는 횟수를 차감하지 않는다.
-- 2026-08-06 점수 처리 방식 변경과 함께 기존 제출 결과를 새 기준으로 재산출하고, 모든 팀의 제출 횟수를 초기화하여 팀별 4회를 새로 부여했다.
-- **Hugging Face URL**: 공개 저장소여야 하며, 토큰이나 추가 커스텀 환경 없이 표준 vLLM 평가 환경에서 바로 로드되어야 한다. `config.json`, tokenizer 파일, 실제 컨텍스트 길이 설정이 완전해야 한다.
-- **Docker Image**: 추가 명령 인자 없이 `docker run <image>`만으로 서버가 시작되어야 한다. `0.0.0.0:8000`에서 OpenAI 호환 API를 제공하고 `GET /health`, `GET /v1/models`, `POST /v1/chat/completions`를 지원해야 한다.
-- Docker 이미지와 Hugging Face 모델 모두 긴 입력에서 컨텍스트 길이 오류나 OOM 없이 동작하는지 제출 전에 확인해야 한다.
+### 2. Establish a Qwen3-4B zero-shot baseline
 
-### 최신 2026-08-06 점수 반올림 규칙
+The initial LLM baseline used Qwen/Qwen3-4B-Instruct-2507 with 4-bit NF4 quantization.
 
-2026-08-06 국립국어원 공지가 기존 기술서보다 우선한다.
+| Setting | Value |
+|---|---|
+| Quantization | NF4 4-bit |
+| Compute dtype | BF16 |
+| Double quantization | enabled |
+| Batch size | 1 |
+| Max new tokens | 1024 |
+| Sampling | disabled |
+| Seed | 42 |
 
-- 모델은 각 영역 점수를 1~5 범위의 정수로 출력해야 한다.
-- 실수 점수를 출력하면 **사사오입하여 정수로 변환**한다.
-- 변환된 정수를 기준으로 RMSE와 Spearman을 계산한다.
-- 기존 제출 결과에도 같은 기준을 적용해 다시 산출한다.
-- 처리 방식 변경에 따라 모든 팀의 제출 횟수를 초기화하고 팀별 4회를 새로 부여한다.
+The zero-shot run produced valid strict-JSON predictions for 399 of 400 validation samples.
 
-학습 라벨에는 정수가 아닌 점수(`content` 최소 0.1 간격, `organization`·`expression` 최소 0.25 간격)가 포함된다. 따라서 연속값을 예측하는 실험을 하더라도 공식 평가 직전에는 위 사사오입 규칙을 그대로 적용한 정수 출력으로 검증해야 한다. 제공된 `average`와 표시된 세 영역 점수의 단순 평균 사이에는 일부 0.01 차이가 있으므로 `average`를 임의로 재계산해 덮어쓰지 않는다.
+| Dimension | RMSE ↓ | Spearman ↑ |
+|---|---:|---:|
+| Content | 1.0620 | 0.2878 |
+| Organization | 1.6904 | 0.2587 |
+| Expression | 0.7312 | 0.2794 |
+| **Mean** | **1.1612** | **0.2753** |
 
-## 프로젝트 구조
+The largest issue was score calibration. For example, the zero-shot Organization prediction mean was approximately 4.73, compared with a ground-truth mean of approximately 3.29. This motivated supervised adaptation instead of relying only on prompt engineering.
 
-```text
-.
-├── data/
-│   ├── raw/          # 원본 데이터
-│   └── processed/    # 전처리된 데이터
-├── docs/             # 공식 문서와 최신 공지
-├── src/
-│   ├── eda.py        # 재사용 가능한 EDA 실행 코드
-│   ├── evaluate.py   # 공식 반올림 규칙 기반 validation evaluator
-│   └── baseline.py   # train 통계 기반 baseline
+## QLoRA Fine-tuning
+
+### Why QLoRA
+
+The original training environment provided an NVIDIA A100 MIG instance with approximately 9.5 GiB of usable VRAM.
+
+Instead of full-parameter fine-tuning, the project used QLoRA:
+
+1. Load the frozen base model with NF4 4-bit quantization.
+2. Attach trainable low-rank LoRA adapters to linear layers.
+3. Train only the adapter parameters.
+4. Merge the selected adapter back into the original BF16 model for deployment.
+
+This allowed a 4B-parameter model to be adapted within the available GPU memory while still producing a standard standalone Hugging Face model for submission.
+
+### Training configuration
+
+| Setting | Value |
+|---|---|
+| Base model | Qwen/Qwen3-4B-Instruct-2507 |
+| Quantization | NF4 4-bit |
+| Compute dtype | BF16 |
+| LoRA target modules | all-linear |
+| LoRA rank | 16 |
+| LoRA alpha | 32 |
+| LoRA dropout | 0.05 |
+| Epochs | 1 |
+| Learning rate | 5e-5 |
+| Per-device batch size | 1 |
+| Gradient accumulation | 8 |
+| Optimizer | paged_adamw_8bit |
+| Scheduler | cosine |
+| Warmup ratio | 0.05 |
+| Gradient checkpointing | enabled |
+| Max sequence length | 2048 |
+| Seed | 42 |
+
+The complete configuration is stored in configs/qwen3_4b_qlora_v1.json.
+
+Training examples longer than the configured maximum sequence length are rejected instead of being silently truncated.
+
+## Score-focused Weighted Token Loss
+
+A standard causal language-model objective gives supervised output tokens equal importance. That is not ideal for this task: a wrong score token directly affects RMSE and Spearman, while a punctuation error or a rationale token does not have the same impact on the quantitative metrics.
+
+The training pipeline therefore maps each supervised token to a semantic role and assigns role-specific weights:
+
+| Token role | Loss weight |
+|---|---:|
+| Prompt | 0.00 |
+| JSON structure | 0.25 |
+| **Score** | **10.00** |
+| Rationale | 0.05 |
+
+The objective is a weighted causal cross entropy:
+
+~~~text
+weighted loss = Σ(token loss × token weight) / Σ(token weight)
+~~~
+
+This puts most of the training pressure on the score predictions while retaining enough supervision to learn the required JSON structure and rationale format.
+
+Implementation:
+
+- src/qlora/tokenization.py — maps target tokens to semantic roles
+- src/qlora/loss.py — computes token-weighted causal cross entropy
+- src/qlora/training.py — integrates the custom loss with Transformers Trainer
+
+## Ablation: Class-balanced Score Weighting
+
+The selected QLoRA v1 model still showed regression toward middle scores, with predictions concentrated around 3 and 4.
+
+A second experiment therefore multiplied score-token weights by class-dependent weights derived from the training-label distribution.
+
+| Model | RMSE ↓ | Spearman ↑ |
+|---|---:|---:|
+| **Weighted QLoRA v1** | **0.6384** | **0.5237** |
+| Class-balanced QLoRA v1b | 0.6452 | 0.5189 |
+
+The class-balanced model produced more 2-point and 5-point predictions, but overall performance became slightly worse. Expression improved, while Content and Organization degraded.
+
+This experiment was kept as a negative ablation rather than replacing the selected checkpoint.
+
+## Model Export
+
+Training produces a PEFT LoRA adapter rather than a standalone model. For submission, the selected adapter was merged into the pinned BF16 base model with PEFT merge_and_unload using safe merge.
+
+The export pipeline:
+
+1. loads the pinned BF16 base model,
+2. loads the trained LoRA adapter,
+3. safely merges the adapter,
+4. writes safetensors weights,
+5. saves the tokenizer and generation configuration,
+6. reloads the exported model locally,
+7. checks model and tokenizer invariants,
+8. runs strict-JSON smoke inference,
+9. optionally compares merged-model scores with the original 4-bit base + LoRA path.
+
+The resulting model is available at:
+
+https://huggingface.co/slvrfivo/qwen3-4b-writing-eval-v1-merged
+
+## Final Submission Serving Configuration
+
+During final submission testing, repetitive generation was observed on a small subset of inputs after merging the adapter into BF16 weights.
+
+The final Hugging Face artifact therefore set:
+
+~~~json
+{
+  "repetition_penalty": 1.05
+}
+~~~
+
+in its generation_config.json before submission. The repository records this final override in configs/submission_generation.json.
+
+The final artifact was then validated through a vLLM OpenAI-compatible serving path, including the competition-required endpoints:
+
+~~~text
+GET  /health
+GET  /v1/models
+POST /v1/chat/completions
+~~~
+
+The local zero-shot configuration predates this submission-time fix and should not be interpreted as the complete final serving configuration.
+
+## Reproduction
+
+### Install dependencies
+
+CPU-side utilities:
+
+~~~bash
+pip install -r requirements.txt
+~~~
+
+GPU inference:
+
+~~~bash
+pip install -r requirements-gpu.txt
+~~~
+
+QLoRA training:
+
+~~~bash
+pip install -r requirements-train-gpu.txt
+~~~
+
+The original experiment environment is documented in docs/reproducibility.md.
+
+### Zero-shot inference
+
+~~~bash
+python src/zero_shot.py \
+  --input data/raw/validation.jsonl \
+  --output-dir outputs/zero_shot
+~~~
+
+### QLoRA training
+
+~~~bash
+python src/train_qlora.py \
+  --input data/raw/train.jsonl \
+  --output-dir checkpoints/qwen3_4b_qlora_v1 \
+  --config configs/qwen3_4b_qlora_v1.json
+~~~
+
+### Adapter inference
+
+~~~bash
+python src/zero_shot.py \
+  --input data/raw/validation.jsonl \
+  --output-dir outputs/qlora_v1 \
+  --adapter checkpoints/qwen3_4b_qlora_v1/final_adapter
+~~~
+
+### Evaluation
+
+~~~bash
+python src/evaluate.py \
+  --predictions outputs/qlora_v1/predictions.jsonl \
+  --require-rationale
+~~~
+
+### Merge into standalone BF16 weights
+
+~~~bash
+python src/export_merged_hf.py \
+  --adapter checkpoints/qwen3_4b_qlora_v1/final_adapter \
+  --output-dir /path/to/submission/qwen3-4b-writing-eval-v1-merged \
+  --validation-input data/raw/validation.jsonl
+~~~
+
+After export, apply the final generation override recorded in configs/submission_generation.json to the exported generation_config.json before competition serving.
+
+## Project Structure
+
+~~~text
+ai-writing-eval/
+├── configs/
+│   ├── qwen3_4b_zero_shot.json
+│   ├── qwen3_4b_qlora_v1.json
+│   ├── qwen3_4b_qlora_v1b.json
+│   └── submission_generation.json
+│
+├── docs/
+│   ├── competition.md
+│   ├── notice_2026-08-06_score_rounding.md
+│   └── reproducibility.md
+│
+├── prompts/
+│   └── official/
+│
 ├── reports/
 │   └── experiments.md
+│
+├── src/
+│   ├── baseline.py
+│   ├── eda.py
+│   ├── evaluate.py
+│   ├── zero_shot.py
+│   ├── train_qlora.py
+│   ├── export_merged_hf.py
+│   ├── llm/
+│   └── qlora/
+│
 ├── tests/
-│   ├── test_baseline.py
-│   └── test_evaluate.py
-├── notebooks/        # 탐색 및 실험용 노트북
-├── outputs/
-│   ├── eda_summary.md
-│   └── figures/      # EDA 그래프
-├── checkpoints/      # 모델 체크포인트
-├── .gitignore
-├── README.md
-└── requirements.txt
-```
+├── requirements.txt
+├── requirements-gpu.txt
+├── requirements-train-gpu.txt
+├── LICENSE
+└── README.md
+~~~
 
-`data/`, `outputs/`, `checkpoints/`, 모델 가중치 파일과 `.env` 파일은 Git에서 제외됩니다.
+Training data, generated outputs, checkpoints, and model weights are intentionally excluded from Git.
 
-## 개발환경
+## Testing
 
-Python 가상환경 사용을 권장합니다.
+The repository includes tests covering:
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
+- official score rounding and evaluation,
+- baseline calculations,
+- strict model-output parsing,
+- prompt construction,
+- inference pipeline behavior,
+- QLoRA configuration and CLI,
+- training-data preparation,
+- token-role assignment,
+- weighted token loss,
+- class balancing,
+- model loading,
+- merged-model export validation.
 
-## EDA 실행
+Run all tests with:
 
-기본 경로의 train/validation JSONL을 자동 탐색하여 보고서와 그래프를 생성한다.
-
-```powershell
-python src/eda.py
-```
-
-경로를 바꾸려면 다음처럼 실행한다.
-
-```powershell
-python src/eda.py --data-dir data/raw --output-dir outputs
-```
-
-원본 JSONL은 읽기 전용으로 열며 수정하지 않는다.
-
-## Validation 평가
-
-예측 파일은 JSON 객체 배열 또는 JSONL이며, 각 레코드는 validation의 `id`·`document_id` 또는 공식 예시의 `essay_id`로 식별한다. 세 영역을 직접 두거나 공식 `judge` 객체 안에 넣을 수 있다.
-
-```json
-[
-  {
-    "id": "GWGR2300001260",
-    "content": {"score": 3.5, "rationale": "내용 근거"},
-    "organization": {"score": 3, "rationale": "구성 근거"},
-    "expression": {"score": 4, "rationale": "표현 근거"}
-  }
-]
-```
-
-기본 `data/raw`의 validation을 자동 탐색해 평가한다.
-
-```powershell
-python src/evaluate.py --predictions predictions.json --require-rationale
-```
-
-예측 점수는 먼저 1~5 범위인지 검사하며, 실수이면 `ROUND_HALF_UP`으로 정수화한 뒤 세 영역 RMSE와 Spearman을 계산한다. 범위 밖 값은 clamp하지 않고 오류로 처리하며 `score.average`는 사용하지 않는다.
-
-```powershell
-# validation 정답 점수를 예측으로 복사하는 파이프라인 점검
-python src/evaluate.py --sanity-check
-
-# 단위 테스트
+~~~bash
 python -m unittest discover -s tests -v
-```
+~~~
 
-## 통계 Baseline
+## Limitations
 
-Train에서만 Global Mean과 prompt_num별 평균을 계산하고, 기존 evaluator로 validation을 평가한다.
+This model was developed specifically for the 2026 AI Malpyeong Korean argumentative writing evaluation and should not be interpreted as a general-purpose or production-grade writing assessment system.
 
-```powershell
-python src/baseline.py
-```
+- The training set contains 2,000 essays.
+- QLoRA v1 still shows regression toward middle scores.
+- Scores 1 and 5 are harder to predict than scores 3 and 4.
+- Global class balancing increased extreme predictions but reduced overall validation performance.
+- Rationale targets are rubric-oriented and should not be treated as detailed human feedback.
+- Local validation reproduces RMSE and Spearman but not the official LLM Judge.
+- Performance outside the competition prompts, domains, and rubric has not been established.
 
-상세 결과는 `outputs/baselines/`에 저장되고, 포트폴리오용 요약은 `reports/experiments.md`에 기록한다.
+## Data
+
+Competition data is not redistributed in this repository.
+
+To reproduce the experiments, obtain the dataset through the official AI Malpyeong distribution process and place the train and validation files under a local data directory.
+
+Data, checkpoints, generated outputs, and model weights are excluded through .gitignore.
+
+## License
+
+The project code is released under the Apache License 2.0. The base model, Qwen/Qwen3-4B-Instruct-2507, is also distributed under Apache-2.0.
+
+Competition data and other third-party materials remain subject to their respective terms and are not covered by this repository license.
