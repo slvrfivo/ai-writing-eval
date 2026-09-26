@@ -27,7 +27,7 @@ QLoRA 파인튜닝과 score-focused weighted token objective를 적용한 최종
 
 공식 예선에서는 **53팀 중 49위**를 기록했고, 상위 50개 모델이 진출한 **AI말평 Arena 전문가 평가 단계**에서 **842점 / 50개 모델 중 44위**를 기록했습니다.
 
-상세 실험 기록은 [reports/experiments.md](reports/experiments.md)에 정리했습니다.
+최종 결과 요약은 [reports/final_results.md](reports/final_results.md), 상세 실험 기록은 [reports/experiments.md](reports/experiments.md)에 정리했습니다.
 
 ## 문제 설정
 
@@ -143,9 +143,9 @@ Export 과정에서는 다음을 확인합니다.
 }
 ~~~
 
-이 제출 시점 설정은 [configs/submission_generation.json](configs/submission_generation.json)에도 남겨두었습니다.
+이 제출 시점 설정은 [configs/submission_generation.json](configs/submission_generation.json)에 남겨두었고, BF16 export CLI가 이 파일을 읽어 export된 Hugging Face `generation_config.json`에 자동으로 적용하도록 연결했습니다.
 
-최종 모델은 vLLM OpenAI-compatible serving 환경에서도 검증했습니다.
+최종 모델은 vLLM OpenAI-compatible serving 환경에서도 검증했습니다. Hugging Face 모델 카드 초안은 [docs/huggingface_model_card.md](docs/huggingface_model_card.md)에 정리했습니다.
 
 ## 재현
 
