@@ -1,5 +1,7 @@
 {
-  "repetition_penalty": 1.05,
-  "applied_to": "final Hugging Face generation_config.json",
+  "generation_config": {
+    "repetition_penalty": 1.05
+  },
+  "applied_to": "final Hugging Face generation_config.json during BF16 export",
   "reason": "Mitigate repetitive degeneration observed on a small subset of merged BF16 generations."
 }

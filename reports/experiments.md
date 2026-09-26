@@ -121,6 +121,8 @@ https://huggingface.co/slvrfivo/qwen3-4b-writing-eval-v1-merged
 
 During final serving validation, repetitive degeneration was observed on a small subset of merged-model generations. The final Hugging Face artifact therefore set `repetition_penalty=1.05` in `generation_config.json`. The repository records this submission-time override in `configs/submission_generation.json`.
 
+Final summary: [final_results.md](final_results.md)
+
 Official references:
 
 - Preliminary leaderboard: https://kli.korean.go.kr/benchmark/taskOrdtm/taskLeaderBoard.do?clCd=ING_TASK&subMenuId=sub04&taskOrdtmId=205

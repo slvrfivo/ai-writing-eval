@@ -2,6 +2,8 @@
 
 [English README](README.md)
 
+[![tests](https://github.com/slvrfivo/ai-writing-eval/actions/workflows/tests.yml/badge.svg)](https://github.com/slvrfivo/ai-writing-eval/actions/workflows/tests.yml)
+
 2026 **국립국어원 AI말평 글쓰기 채점 능력 평가**를 위해 개발한 Qwen3-4B 기반 한국어 논증문 자동 채점 프로젝트입니다.
 
 주제와 논증문을 입력받아 **내용(Content), 구성(Organization), 표현(Expression)**을 각각 1–5점으로 평가하고, 각 점수에 대한 한국어 근거를 JSON 형식으로 생성합니다.
@@ -27,7 +29,9 @@ QLoRA 파인튜닝과 score-focused weighted token objective를 적용한 최종
 
 공식 예선에서는 **53팀 중 49위**를 기록했고, 상위 50개 모델이 진출한 **AI말평 Arena 전문가 평가 단계**에서 **842점 / 50개 모델 중 44위**를 기록했습니다.
 
-상세 실험 기록은 [reports/experiments.md](reports/experiments.md)에 정리했습니다.
+비공개 공식 test RMSE(**0.6213**)는 local validation RMSE(**0.6384**)보다 소폭 낮았습니다. 이는 held-out 대회 데이터에서도 성능이 유지되었다는 긍정적인 신호지만, split과 평가 조건이 다르므로 **과적합이 없었다는 증거로 해석하지는 않습니다.**
+
+최종 결과 요약은 [reports/final_results.md](reports/final_results.md), 상세 실험 기록은 [reports/experiments.md](reports/experiments.md)에 정리했습니다.
 
 ## 문제 설정
 
@@ -91,6 +95,12 @@ QLoRA 파인튜닝과 score-focused weighted token objective를 적용한 최종
 
 전체 설정은 [configs/qwen3_4b_qlora_v1.json](configs/qwen3_4b_qlora_v1.json)에서 확인할 수 있습니다.
 
+### Organization 예측 분포 변화
+
+![Organization prediction distribution: zero-shot vs QLoRA v1](docs/assets/organization_prediction_distribution.svg)
+
+Zero-shot에서는 Organization을 **399건 중 304건에서 5점**으로 예측했습니다. QLoRA 이후에는 3점과 4점 예측이 각각 **242건 / 153건**으로 이동해 과대평가는 크게 줄었지만, 반대로 중간 점수로 수렴하는 경향이 남았습니다.
+
 ## Score-focused Weighted Token Objective
 
 일반적인 causal language-model loss는 supervised output token을 비슷한 중요도로 다룹니다. 하지만 이 대회에서는 **점수 토큰의 오류가 RMSE와 Spearman에 직접 영향을 주기 때문에**, target token을 역할별로 구분해 서로 다른 loss weight를 적용했습니다.
@@ -127,6 +137,14 @@ v1 모델은 예측이 주로 3점과 4점에 집중되는 문제가 남아 있�
 
 v1b에서는 극단 점수 예측은 늘었지만 전체 RMSE와 Spearman이 소폭 악화되어, 최종 모델은 v1을 유지했습니다.
 
+## 회고: 점수 정확도와 rationale 품질의 trade-off
+
+학습 objective에서는 score token에 **10.0**, rationale token에 **0.05**의 가중치를 두었고, rationale target 역시 rubric template 중심으로 구성했습니다. 실제 실험 로그에서도 fine-tuning 이후 rationale이 더 단순하고 템플릿에 가까워졌다고 기록했습니다.
+
+따라서 이 프로젝트에서는 정량 점수 지표를 개선하는 방향과 근거 설명의 풍부함 사이에 trade-off가 있었을 가능성이 있습니다. 공식 **LLM Judge 3.0337**과 rationale을 포함한 출력을 전문가가 비교한 Arena 결과는 이 해석과 **일관되지만**, rationale 가중치가 최종 순위의 직접 원인이었다고 입증하는 실험은 없습니다.
+
+다시 진행한다면 uniform-loss baseline과 rationale weight sweep을 추가하고, 더 풍부한 rationale target을 사용하며, score prediction과 explanation generation을 두 단계로 분리하는 방법도 비교하겠습니다. 또한 RMSE/Spearman뿐 아니라 rationale 품질 지표도 model selection 기준에 포함하겠습니다.
+
 ## 모델 Export 및 Serving
 
 최종 PEFT adapter는 pinned BF16 base model에 merge해 standalone Hugging Face 모델로 export했습니다.
@@ -143,9 +161,9 @@ Export 과정에서는 다음을 확인합니다.
 }
 ~~~
 
-이 제출 시점 설정은 [configs/submission_generation.json](configs/submission_generation.json)에도 남겨두었습니다.
+이 제출 시점 설정은 [configs/submission_generation.json](configs/submission_generation.json)에 남겨두었고, BF16 export CLI가 이 파일을 읽어 export된 Hugging Face `generation_config.json`에 자동으로 적용하도록 연결했습니다.
 
-최종 모델은 vLLM OpenAI-compatible serving 환경에서도 검증했습니다.
+최종 모델은 vLLM OpenAI-compatible serving 환경에서도 검증했습니다. Hugging Face 모델 카드 초안은 [docs/huggingface_model_card.md](docs/huggingface_model_card.md)에 정리했습니다.
 
 ## 재현
 
@@ -167,6 +185,14 @@ python src/zero_shot.py \
 python src/evaluate.py \
   --predictions outputs/qlora_v1/predictions.jsonl \
   --require-rationale
+~~~
+
+## 테스트
+
+GitHub Actions에서 pull request와 `master` push마다 CPU unit test를 실행합니다. 현재 테스트는 **85개**입니다.
+
+~~~bash
+python -m unittest discover -s tests -v
 ~~~
 
 ## 한계

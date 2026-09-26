@@ -14,6 +14,7 @@ try:
         DEFAULT_OUTPUT_PATH,
         DEFAULT_SMOKE_SAMPLES,
         export_merged_model,
+        load_submission_generation_overrides,
     )
     from .llm.pipeline import InferenceConfig
 except ImportError:  # python src/export_merged_hf.py
@@ -23,6 +24,7 @@ except ImportError:  # python src/export_merged_hf.py
         DEFAULT_OUTPUT_PATH,
         DEFAULT_SMOKE_SAMPLES,
         export_merged_model,
+        load_submission_generation_overrides,
     )
     from llm.pipeline import InferenceConfig
 
@@ -68,12 +70,16 @@ def main(argv: Sequence[str] | None = None) -> None:
     config = InferenceConfig.from_json(
         root / "configs" / "qwen3_4b_zero_shot.json"
     )
+    submission_generation_overrides = load_submission_generation_overrides(
+        root / "configs" / "submission_generation.json"
+    )
     metadata = export_merged_model(
         adapter_path=args.adapter,
         output_path=args.output_dir,
         validation_input=args.validation_input,
         inference_config=config,
         project_root=root,
+        submission_generation_overrides=submission_generation_overrides,
         smoke_sample_count=args.smoke_samples,
         max_shard_size=args.max_shard_size,
         compare_quantized=args.compare_quantized,

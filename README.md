@@ -2,6 +2,8 @@
 
 [한국어 README](README.ko.md)
 
+[![tests](https://github.com/slvrfivo/ai-writing-eval/actions/workflows/tests.yml/badge.svg)](https://github.com/slvrfivo/ai-writing-eval/actions/workflows/tests.yml)
+
 Built for the 2026 **National Institute of Korean Language (NIKL) AI말평 writing-scoring evaluation**.
 
 QLoRA fine-tuning with a score-focused weighted token objective reduced validation RMSE to **0.638** (mean baseline: **0.787**, zero-shot: **1.161**) and raised Spearman from **0.275** to **0.524**. On the hidden official test set, the final submission scored **RMSE 0.621 / Spearman 0.570**.
@@ -27,7 +29,9 @@ The selected model was merged into standalone BF16 weights, published on Hugging
 
 The preliminary leaderboard placed the submission **49th of 53 teams**. The top 50 models then entered the **AI말평 Arena**, an expert human-evaluation stage; this model recorded **842 points and 44th of 50 Arena models**.
 
-Detailed experiment logs: [reports/experiments.md](reports/experiments.md)
+The official hidden-test RMSE (**0.6213**) was slightly lower than the local validation RMSE (**0.6384**). This is encouraging evidence that performance transferred to held-out competition data, but it is **not proof against overfitting** because the splits and evaluation conditions differ.
+
+Final results: [reports/final_results.md](reports/final_results.md) · Detailed experiment logs: [reports/experiments.md](reports/experiments.md)
 
 ## Task
 
@@ -98,6 +102,12 @@ The selected run used:
 
 Full configuration: [configs/qwen3_4b_qlora_v1.json](configs/qwen3_4b_qlora_v1.json)
 
+### Organization prediction distribution
+
+![Organization prediction distribution: zero-shot vs QLoRA v1](docs/assets/organization_prediction_distribution.svg)
+
+Zero-shot predicted the maximum Organization score for **304 of 399** valid samples. After QLoRA fine-tuning, predictions shifted mostly to scores 3 and 4 (**242 / 153 of 400**), substantially reducing over-scoring while revealing a remaining regression-to-the-mean pattern.
+
 ## Score-focused Weighted Token Objective
 
 The task evaluates the predicted scores directly, but a standard causal language-model loss treats all supervised output tokens similarly.
@@ -140,6 +150,14 @@ The selected model still concentrated predictions around scores 3 and 4, so a se
 
 The class-balanced version produced more extreme predictions, but overall RMSE and Spearman became slightly worse. It was therefore retained as a negative ablation rather than replacing v1.
 
+## Postmortem: score accuracy vs rationale quality
+
+The training objective deliberately placed much more weight on score tokens (**10.0**) than rationale tokens (**0.05**), and the rationale targets themselves were rubric-oriented templates. In the experiment log, the resulting rationales became noticeably simpler after fine-tuning.
+
+One plausible trade-off is that the setup optimized the quantitative score metrics more aggressively than rationale quality. That interpretation is **consistent with**, but not proven by, the official **LLM Judge score of 3.0337** and the later Arena stage, where human experts compared model outputs including their rationales. The available experiments do not isolate rationale weighting as the cause of the final placement.
+
+If repeating the project, I would evaluate this trade-off explicitly: run a uniform-loss baseline, sweep rationale weights, use richer rationale targets, and consider a two-stage design where one model predicts scores and a second stage generates explanations conditioned on those scores. I would also track a rationale-quality metric during model selection instead of optimizing primarily for RMSE and Spearman.
+
 ## Export and Serving
 
 The selected PEFT adapter was merged into the pinned BF16 base model and exported as a standalone Hugging Face model.
@@ -158,9 +176,11 @@ During final submission testing, repetitive degeneration appeared on a small sub
 
 in `generation_config.json`.
 
-The same override is recorded in [configs/submission_generation.json](configs/submission_generation.json).
+The override is recorded in [configs/submission_generation.json](configs/submission_generation.json). The BF16 export CLI loads this file and writes the value into the exported Hugging Face `generation_config.json` before local reload and strict-JSON smoke validation.
 
 The final artifact was then validated through a vLLM OpenAI-compatible serving path using the competition-required health, model-listing, and chat-completions endpoints.
+
+A Hugging Face model-card draft is kept in [docs/huggingface_model_card.md](docs/huggingface_model_card.md).
 
 ## Reproduction
 
@@ -206,6 +226,14 @@ python src/export_merged_hf.py \
 ~~~
 
 Environment details and reproducibility notes: [docs/reproducibility.md](docs/reproducibility.md)
+
+## Testing
+
+GitHub Actions runs the CPU unit-test suite on every pull request and push to `master`. The current suite contains **85 tests**.
+
+~~~bash
+python -m unittest discover -s tests -v
+~~~
 
 ## Repository Layout
 

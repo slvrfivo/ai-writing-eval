@@ -96,6 +96,6 @@ The override is recorded in:
 configs/submission_generation.json
 ~~~
 
-For exact final-artifact reproduction, set the same value in the exported Hugging Face generation_config.json before serving the model.
+For exact final-artifact reproduction, use `src/export_merged_hf.py`. The export CLI reads `configs/submission_generation.json` and applies the recorded value to the exported Hugging Face `generation_config.json` before local reload and strict-JSON smoke validation.
 
 The final artifact was validated with a vLLM OpenAI-compatible server using the competition-required health, model-listing, and chat-completions endpoints.
