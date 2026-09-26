@@ -36,6 +36,8 @@ The selected QLoRA setup improved over both the statistical mean baseline and th
 
 The top 50 models advanced to the AI말평 Arena expert human-evaluation stage.
 
+The official hidden-test RMSE (**0.6213**) was slightly lower than local validation (**0.6384**). This supports that the selected checkpoint transferred reasonably to held-out competition data, but it should not be treated as proof that the model did not overfit because the splits and evaluation conditions differ.
+
 ## Arena
 
 - Arena points: **842**
