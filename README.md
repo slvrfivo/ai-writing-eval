@@ -27,7 +27,7 @@ The selected model was merged into standalone BF16 weights, published on Hugging
 
 The preliminary leaderboard placed the submission **49th of 53 teams**. The top 50 models then entered the **AI말평 Arena**, an expert human-evaluation stage; this model recorded **842 points and 44th of 50 Arena models**.
 
-Detailed experiment logs: [reports/experiments.md](reports/experiments.md)
+Final results: [reports/final_results.md](reports/final_results.md) · Detailed experiment logs: [reports/experiments.md](reports/experiments.md)
 
 ## Task
 
@@ -158,9 +158,11 @@ During final submission testing, repetitive degeneration appeared on a small sub
 
 in `generation_config.json`.
 
-The same override is recorded in [configs/submission_generation.json](configs/submission_generation.json).
+The override is recorded in [configs/submission_generation.json](configs/submission_generation.json). The BF16 export CLI loads this file and writes the value into the exported Hugging Face `generation_config.json` before local reload and strict-JSON smoke validation.
 
 The final artifact was then validated through a vLLM OpenAI-compatible serving path using the competition-required health, model-listing, and chat-completions endpoints.
+
+A Hugging Face model-card draft is kept in [docs/huggingface_model_card.md](docs/huggingface_model_card.md).
 
 ## Reproduction
 
