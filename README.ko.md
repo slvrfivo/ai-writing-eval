@@ -24,8 +24,6 @@ Qwen3-4B-Instruct를 QLoRA로 파인튜닝했고, loss는 점수 토큰에 가�
 
 \*평균 baseline은 공식 반올림을 거치면 모든 글에 같은 점수를 주게 돼서 Spearman을 계산할 수 없습니다.
 
-예선 리더보드에서는 53팀 중 49위였습니다. 상위 50개 모델은 전문가가 출력을 직접 비교하는 AI말평 Arena로 넘어갔는데, 여기서는 842점으로 50개 중 44위를 했습니다.
-
 공식 test RMSE(0.621)가 validation(0.638)보다 조금 좋게 나왔지만, split과 평가 조건이 달라서 큰 의미를 두지는 않았습니다.
 
 최종 결과: [reports/final_results.md](reports/final_results.md) · 실험 기록: [reports/experiments.md](reports/experiments.md)
@@ -121,7 +119,7 @@ v1b는 1점과 5점을 더 많이 예측했지만 두 지표 모두 조금 나�
 
 ## 회고: 점수와 근거 사이
 
-점수 토큰에 10.0, 근거 토큰에 0.05를 주고 근거 정답도 템플릿에 가깝게 만들다 보니, 근거 품질이 떨어졌을 가능성이 큽니다. 실험 기록에도 파인튜닝 후 근거가 눈에 띄게 단순해졌다고 적어 뒀습니다. LLM Judge 점수(3.03)와 전문가가 근거까지 읽고 비교한 Arena 결과도 이 설명과 맞긴 하지만, 원인을 따로 떼어 확인한 실험은 없습니다.
+점수 토큰에 10.0, 근거 토큰에 0.05를 주고 근거 정답도 템플릿에 가깝게 만들다 보니, 근거 품질이 떨어졌을 가능성이 큽니다. 실험 기록에도 파인튜닝 후 근거가 눈에 띄게 단순해졌다고 적어 뒀습니다. LLM Judge 점수(3.03)도 이 설명과 맞긴 하지만, 원인을 따로 떼어 확인한 실험은 없습니다.
 
 다시 한다면 이렇게 해 보겠습니다.
 
@@ -211,5 +209,3 @@ ai-writing-eval/
 ## 공식 자료
 
 - 과제 소개: https://kli.korean.go.kr/benchmark/taskOrdtm/taskList.do?taskOrdtmId=205
-- 예선 리더보드: https://kli.korean.go.kr/benchmark/taskOrdtm/taskLeaderBoard.do?clCd=ING_TASK&subMenuId=sub04&taskOrdtmId=205
-- Arena 소개: https://kli.korean.go.kr/taskOrdtm/taskList.do?clCd=END_TASK&subMenuId=sub01&taskOrdtmId=215

@@ -53,10 +53,6 @@ https://github.com/slvrfivo/ai-writing-eval
 - RMSE: **0.6213**
 - Spearman: **0.5697**
 - LLM Judge: **3.0337**
-- Preliminary leaderboard: **49th of 53 teams**
-- AI말평 Arena: **842 points, 44th of 50 models**
-
-The top 50 preliminary models entered the Arena expert human-evaluation stage.
 
 ## Training objective
 

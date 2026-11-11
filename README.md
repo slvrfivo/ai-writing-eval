@@ -24,8 +24,6 @@ I fine-tuned Qwen3-4B-Instruct with QLoRA, using a loss that puts most of its we
 
 \*After the official rounding, the mean baseline predicts the same score for every essay, so Spearman is undefined.
 
-The submission placed 49th of 53 teams on the preliminary leaderboard. The top 50 moved on to the AI말평 Arena, where human experts compared model outputs; this model got 842 points and finished 44th of 50.
-
 The test RMSE came out slightly better than validation (0.621 vs 0.638). The splits and evaluation conditions differ, so I don't read much into that.
 
 Final results: [reports/final_results.md](reports/final_results.md) · Experiment log: [reports/experiments.md](reports/experiments.md)
@@ -121,7 +119,7 @@ v1b predicted more 1s and 5s, but both metrics got slightly worse, so I kept v1.
 
 ## Postmortem: scores vs rationales
 
-Weighting score tokens at 10.0 and rationale tokens at 0.05, with template-style rationale targets, probably hurt the rationales. They got noticeably simpler after fine-tuning (noted in the experiment log). The LLM Judge score (3.03) and the Arena result, where experts also read the rationales, fit that explanation, but I didn't run anything that isolates the cause.
+Weighting score tokens at 10.0 and rationale tokens at 0.05, with template-style rationale targets, probably hurt the rationales. They got noticeably simpler after fine-tuning (noted in the experiment log). The LLM Judge score (3.03) fits that explanation, but I didn't run anything that isolates the cause.
 
 If I did it again, I would:
 
@@ -211,5 +209,3 @@ The code is released under the Apache License 2.0. Third-party models, competiti
 ## Official references
 
 - Task overview: https://kli.korean.go.kr/benchmark/taskOrdtm/taskList.do?taskOrdtmId=205
-- Preliminary leaderboard: https://kli.korean.go.kr/benchmark/taskOrdtm/taskLeaderBoard.do?clCd=ING_TASK&subMenuId=sub04&taskOrdtmId=205
-- Arena overview: https://kli.korean.go.kr/taskOrdtm/taskList.do?clCd=END_TASK&subMenuId=sub01&taskOrdtmId=215
