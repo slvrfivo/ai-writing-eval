@@ -9,6 +9,25 @@ All metrics use the official evaluation logic implemented in `src/evaluate.py`. 
 
 Detailed global and per-`prompt_num` means are written to `outputs/baselines/baseline_summary.md`. The `outputs/` directory is excluded from Git because it contains reproducible artifacts.
 
+## Dataset statistics (added 2026-11-11)
+
+Aggregate score statistics from the competition train and validation files. Ground-truth scores are averages of rater scores, so they are not integers; for comparison with model predictions they are rounded with the official `ROUND_HALF_UP` rule. No essay text is included.
+
+### Validation ground truth after rounding (400 essays)
+
+| Dimension | 1 | 2 | 3 | 4 | 5 | Mean (unrounded) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Content | 2 | 45 | 201 | 141 | 11 | 3.229 |
+| Organization | 5 | 56 | 141 | 157 | 41 | 3.286875 |
+| Expression | 2 | 15 | 104 | 226 | 53 | 3.676875 |
+
+### Pearson correlation between dimensions (unrounded scores)
+
+| Split | Content–Organization | Content–Expression | Organization–Expression |
+| --- | ---: | ---: | ---: |
+| Train (2,000) | 0.697 | 0.602 | 0.625 |
+| Validation (400) | 0.741 | 0.640 | 0.660 |
+
 ## Qwen3-4B zero-shot baseline (2026-08-23)
 
 - Model: `Qwen/Qwen3-4B-Instruct-2507`

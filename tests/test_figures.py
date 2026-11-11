@@ -29,6 +29,37 @@ class FigureTests(unittest.TestCase):
                 self.assertEqual(sum(series[label][dimension].values()), total, (label, dimension))
         self.assertAlmostEqual(gt_means["expression"], 3.676875)
 
+    def test_ground_truth_counts_match_validation_size_and_means(self) -> None:
+        markdown = make_figures.EXPERIMENTS_PATH.read_text(encoding="utf-8")
+        truth = make_figures.parse_ground_truth(markdown)
+        _, gt_means = make_figures.parse_distributions(markdown)
+
+        self.assertEqual(truth["organization"], {1: 5, 2: 56, 3: 141, 4: 157, 5: 41})
+        for dimension, counts in truth.items():
+            self.assertEqual(sum(counts.values()), 400, dimension)
+            # the rounded mean must stay within half a point of the unrounded mean
+            rounded_mean = sum(score * n for score, n in counts.items()) / 400
+            self.assertLess(abs(rounded_mean - gt_means[dimension]), 0.5, dimension)
+
+    def test_model_metrics_are_parsed_from_experiment_log(self) -> None:
+        rows = make_figures.parse_model_metrics(
+            make_figures.EXPERIMENTS_PATH.read_text(encoding="utf-8")
+        )
+        by_label = {label: (rmse, spearman) for label, rmse, spearman, _ in rows}
+
+        self.assertEqual(len(rows), 5)
+        self.assertAlmostEqual(by_label["Mean baseline"][0], 0.787031)
+        self.assertIsNone(by_label["Mean baseline"][1])
+        self.assertAlmostEqual(by_label["QLoRA v1 (selected)"][0], 0.6384419374257172)
+        self.assertAlmostEqual(by_label["QLoRA v1, official test"][1], 0.5697)
+
+    def test_correlations_are_parsed_from_experiment_log(self) -> None:
+        data = make_figures.parse_correlations(
+            make_figures.EXPERIMENTS_PATH.read_text(encoding="utf-8")
+        )
+        self.assertEqual(list(data), ["Train (2,000)", "Validation (400)"])
+        self.assertAlmostEqual(data["Validation (400)"][("content", "organization")], 0.741)
+
     def test_missing_section_is_reported(self) -> None:
         with self.assertRaisesRegex(ValueError, "not found"):
             make_figures.parse_distributions("# Experiment Log\n")

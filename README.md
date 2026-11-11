@@ -29,6 +29,8 @@ After the preliminary round, the model also took part in the AI말평 Arena, whe
 
 The test RMSE came out slightly better than validation (0.621 vs 0.638). The splits and evaluation conditions differ, so I don't read much into that.
 
+![Mean RMSE and Spearman for each model](docs/assets/model_comparison.svg)
+
 Final results: [reports/final_results.md](reports/final_results.md) · Experiment log: [reports/experiments.md](reports/experiments.md)
 
 ## Task
@@ -82,9 +84,9 @@ Full config: [configs/qwen3_4b_qlora_v1.json](configs/qwen3_4b_qlora_v1.json)
 
 ### Prediction distribution
 
-![Predicted score distribution on validation for zero-shot, QLoRA v1 and v1b](docs/assets/prediction_distribution.svg)
+![Validation score distribution: ground truth vs zero-shot, QLoRA v1 and v1b](docs/assets/prediction_distribution.svg)
 
-Zero-shot over-scored every dimension, most of all organization (5 for 304 of 399 essays). After fine-tuning, predictions moved mostly to 3 and 4 (organization: 242 and 153 of 400) and sit close to the ground-truth means. The over-scoring is largely gone, but v1 never predicts 1 or 5, so predictions now bunch up in the middle. v1b adds only a handful of 5s (at most 6 per dimension).
+The gray bars are the ground truth, rounded the same way as the predictions. Zero-shot over-scored every dimension, most of all organization (5 for 304 of 399 essays, against 41 in the ground truth). After fine-tuning, predictions moved mostly to 3 and 4 (organization: 242 and 153 of 400). The over-scoring is largely gone, but predictions are now narrower than the ground truth: v1 never predicts 1 or 5 and gives only 3–5 essays a 2 per dimension, while the ground truth has 45–56 twos in content and organization and 41–53 fives in organization and expression. v1b adds only a few 2s and at most 6 fives per dimension.
 
 ## Weighted token loss
 
@@ -129,9 +131,13 @@ v1 still bunched its predictions around 3 and 4, so for v1b I also weighted scor
 | Weighted QLoRA v1 | 0.6384 | 0.5237 |
 | Class-balanced QLoRA v1b | 0.6452 | 0.5189 |
 
-v1b predicted more 1s and 5s, but both metrics got slightly worse, so I kept v1.
+v1b predicted a few more 2s and 5s (still no 1s), but both metrics got slightly worse, so I kept v1.
 
 v1b was trained with `per_sample` normalization. When an essay's score tokens get a class weight of 2.0, that essay's denominator grows too, so the score tokens' share of the loss rises by much less than 2×. The difference is largest for essays whose three scores are all rare, which is common because the dimensions are correlated. The class balancing in v1b was therefore weaker than its weights suggest, and the result says more about this weak version than about class balancing in general. Re-running v1b with `--loss-normalization dataset_mean` would test the intended weighting; I have not run it.
+
+![Pearson correlation between content, organization and expression in train and validation](docs/assets/dimension_correlation.svg)
+
+The three dimensions correlate at r = 0.60–0.74, so an essay that is rare in one dimension is often rare in the others too.
 
 ## Postmortem: scores vs rationales
 
@@ -187,7 +193,7 @@ python src/export_merged_hf.py \
 
 ## Tests
 
-GitHub Actions runs the 97 CPU unit tests on every pull request and every push to `master`.
+GitHub Actions runs the 100 CPU unit tests on every pull request and every push to `master`.
 
 ~~~bash
 python -m unittest discover -s tests -v
