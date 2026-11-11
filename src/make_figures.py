@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import math
 import re
 import sys
 from pathlib import Path
@@ -86,7 +87,9 @@ def char_width(ch: str, size: float) -> float:
 
 
 def text_width(text: str, size: float) -> float:
-    return sum(char_width(ch, size) for ch in text)
+    # math.fsum is exact, so the SVG is identical on every Python version
+    # (built-in sum() switched to compensated float summation in 3.12).
+    return math.fsum(char_width(ch, size) for ch in text)
 
 
 def fmt(value: float) -> str:
@@ -185,7 +188,7 @@ def render_target_figure() -> str:
         background, color, _ = ROLE_STYLE[role]
         label = f"{ROLE_LABEL[role]}  ×{weights[role]:.2f}"
         outline = ' stroke="#9CA3AF"' if role != "score" else ""
-        body.append(f'<rect x="{x}" y="{y - 13}" width="16" height="16" rx="3" fill="{background}"{outline}/>')
+        body.append(f'<rect x="{fmt(x)}" y="{y - 13}" width="16" height="16" rx="3" fill="{background}"{outline}/>')
         body.append(svg_text(x + 24, y, label, size=14, weight="bold" if role == "score" else "normal"))
         x += 24 + text_width(label, 14) + 36
     y += 30
@@ -250,7 +253,7 @@ def render_distribution_figure() -> str:
     # legend
     x = left - 16
     for label in labels:
-        body.append(f'<rect x="{x}" y="{78}" width="14" height="14" rx="2" fill="{SERIES_COLOR[label]}"/>')
+        body.append(f'<rect x="{fmt(x)}" y="78" width="14" height="14" rx="2" fill="{SERIES_COLOR[label]}"/>')
         body.append(svg_text(x + 20, 90, label, size=13))
         x += 20 + text_width(label, 13) + 28
 
