@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="330" viewBox="0 0 960 330" role="img" aria-labelledby="title desc">
+<title id="title">Model comparison</title>
+<desc id="desc">Mean baseline: RMSE 0.7870, Spearman undefined (validation); Zero-shot: RMSE 1.1612, Spearman 0.2753 (validation, 399 valid outputs); QLoRA v1 (selected): RMSE 0.6384, Spearman 0.5237 (validation); QLoRA v1b: RMSE 0.6452, Spearman 0.5189 (validation); QLoRA v1, official test: RMSE 0.6213, Spearman 0.5697 (hidden test)</desc>
+<rect width="960" height="330" fill="#FFFFFF"/>
+<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#DBEAFE"/><line x1="0" y1="0" x2="0" y2="6" stroke="#2563EB" stroke-width="3"/></pattern></defs>
+<text x="24" y="36" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="20" fill="#1F2937" text-anchor="start" font-weight="bold">Model comparison (mean of three dimensions)</text>
+<text x="24" y="60" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#6B7280" text-anchor="start" font-weight="normal">Validation set except the last row, which is the official hidden test. Zero-shot is scored on its 399 valid outputs.</text>
+<text x="214" y="88" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="14" fill="#1F2937" text-anchor="start" font-weight="bold">Mean RMSE (lower is better)</text>
+<line x1="214" y1="100" x2="214" y2="274" stroke="#9CA3AF"/>
+<text x="214" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.0</text>
+<line x1="267.3" y1="100" x2="267.3" y2="274" stroke="#E5E7EB"/>
+<text x="267.3" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.2</text>
+<line x1="320.7" y1="100" x2="320.7" y2="274" stroke="#E5E7EB"/>
+<text x="320.7" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.4</text>
+<line x1="374" y1="100" x2="374" y2="274" stroke="#E5E7EB"/>
+<text x="374" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.6</text>
+<line x1="427.3" y1="100" x2="427.3" y2="274" stroke="#E5E7EB"/>
+<text x="427.3" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.8</text>
+<line x1="480.7" y1="100" x2="480.7" y2="274" stroke="#E5E7EB"/>
+<text x="480.7" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">1.0</text>
+<line x1="534" y1="100" x2="534" y2="274" stroke="#E5E7EB"/>
+<text x="534" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">1.2</text>
+<text x="24" y="119" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#1F2937" text-anchor="start" font-weight="normal">Mean baseline</text>
+<text x="24" y="133" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="10" fill="#6B7280" text-anchor="start" font-weight="normal">validation</text>
+<rect x="214" y="108" width="209.9" height="20" fill="#9CA3AF" stroke="#9CA3AF"/>
+<text x="429.9" y="123" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#1F2937" text-anchor="start" font-weight="normal">0.7870</text>
+<text x="24" y="153" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#1F2937" text-anchor="start" font-weight="normal">Zero-shot</text>
+<text x="24" y="167" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="10" fill="#6B7280" text-anchor="start" font-weight="normal">validation, 399 valid outputs</text>
+<rect x="214" y="142" width="309.7" height="20" fill="#14B8A6" stroke="#14B8A6"/>
+<text x="529.7" y="157" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#1F2937" text-anchor="start" font-weight="normal">1.1612</text>
+<text x="24" y="187" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#1F2937" text-anchor="start" font-weight="bold">QLoRA v1 (selected)</text>
+<text x="24" y="201" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="10" fill="#6B7280" text-anchor="start" font-weight="normal">validation</text>
+<rect x="214" y="176" width="170.3" height="20" fill="#2563EB" stroke="#2563EB"/>
+<text x="390.3" y="191" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#1F2937" text-anchor="start" font-weight="normal">0.6384</text>
+<text x="24" y="221" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#1F2937" text-anchor="start" font-weight="normal">QLoRA v1b</text>
+<text x="24" y="235" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="10" fill="#6B7280" text-anchor="start" font-weight="normal">validation</text>
+<rect x="214" y="210" width="172" height="20" fill="#F59E0B" stroke="#F59E0B"/>
+<text x="392" y="225" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#1F2937" text-anchor="start" font-weight="normal">0.6452</text>
+<text x="24" y="255" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#1F2937" text-anchor="start" font-weight="normal">QLoRA v1, official test</text>
+<text x="24" y="269" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="10" fill="#6B7280" text-anchor="start" font-weight="normal">hidden test</text>
+<rect x="214" y="244" width="165.7" height="20" fill="url(#hatch)" stroke="#2563EB"/>
+<text x="385.7" y="259" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#1F2937" text-anchor="start" font-weight="normal">0.6213</text>
+<text x="594" y="88" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="14" fill="#1F2937" text-anchor="start" font-weight="bold">Mean Spearman (higher is better)</text>
+<line x1="594" y1="100" x2="594" y2="274" stroke="#9CA3AF"/>
+<text x="594" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.0</text>
+<line x1="647.3" y1="100" x2="647.3" y2="274" stroke="#E5E7EB"/>
+<text x="647.3" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.1</text>
+<line x1="700.7" y1="100" x2="700.7" y2="274" stroke="#E5E7EB"/>
+<text x="700.7" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.2</text>
+<line x1="754" y1="100" x2="754" y2="274" stroke="#E5E7EB"/>
+<text x="754" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.3</text>
+<line x1="807.3" y1="100" x2="807.3" y2="274" stroke="#E5E7EB"/>
+<text x="807.3" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.4</text>
+<line x1="860.7" y1="100" x2="860.7" y2="274" stroke="#E5E7EB"/>
+<text x="860.7" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.5</text>
+<line x1="914" y1="100" x2="914" y2="274" stroke="#E5E7EB"/>
+<text x="914" y="290" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="middle" font-weight="normal">0.6</text>
+<text x="600" y="122" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#6B7280" text-anchor="start" font-weight="normal">undefined (constant predictions)</text>
+<rect x="594" y="142" width="146.8" height="20" fill="#14B8A6" stroke="#14B8A6"/>
+<text x="746.8" y="157" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#1F2937" text-anchor="start" font-weight="normal">0.2753</text>
+<rect x="594" y="176" width="279.3" height="20" fill="#2563EB" stroke="#2563EB"/>
+<text x="879.3" y="191" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#1F2937" text-anchor="start" font-weight="normal">0.5237</text>
+<rect x="594" y="210" width="276.7" height="20" fill="#F59E0B" stroke="#F59E0B"/>
+<text x="876.7" y="225" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#1F2937" text-anchor="start" font-weight="normal">0.5189</text>
+<rect x="594" y="244" width="303.8" height="20" fill="url(#hatch)" stroke="#2563EB"/>
+<text x="903.8" y="259" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#1F2937" text-anchor="start" font-weight="normal">0.5697</text>
+<text x="24" y="316" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="11" fill="#6B7280" text-anchor="start" font-weight="normal">Source: reports/experiments.md</text>
+</svg>

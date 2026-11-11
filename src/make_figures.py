@@ -4,14 +4,19 @@
     The real assistant target built by ``src/qlora/targets.py``, coloured by the
     token role each character span maps to, with weights from the v1 config.
 - docs/assets/prediction_distribution.svg
-    Validation prediction distributions for zero-shot, QLoRA v1 and v1b, parsed
-    from ``reports/experiments.md``.
+    Validation ground truth (rounded) and prediction distributions for
+    zero-shot, QLoRA v1 and v1b, parsed from ``reports/experiments.md``.
+- docs/assets/model_comparison.svg
+    Mean RMSE and Spearman per model, parsed from ``reports/experiments.md``.
+- docs/assets/dimension_correlation.svg
+    Pearson correlation between the three dimensions in train and validation,
+    parsed from ``reports/experiments.md``.
 
 Only the standard library is used. ``tests/test_figures.py`` fails when a
 committed SVG differs from what this script generates.
 
 Usage (from the repository root):
-    python src/make_figures.py          # rewrite both SVGs
+    python src/make_figures.py          # rewrite all SVGs
     python src/make_figures.py --check  # exit 1 if a committed SVG is stale
 """
 
@@ -42,6 +47,8 @@ EXPERIMENTS_PATH = ROOT / "reports" / "experiments.md"
 
 TARGET_SVG = ASSETS / "target_loss_weights.svg"
 DISTRIBUTION_SVG = ASSETS / "prediction_distribution.svg"
+COMPARISON_SVG = ASSETS / "model_comparison.svg"
+CORRELATION_SVG = ASSETS / "dimension_correlation.svg"
 
 FONT = "Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif"
 MONO = "Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace"
@@ -72,10 +79,11 @@ DISTRIBUTION_SECTIONS = {
     "Qwen3-4B class-balanced QLoRA v1b": "QLoRA v1b",
 }
 SERIES_COLOR = {
-    "Zero-shot": "#9CA3AF",
+    "Zero-shot": "#14B8A6",
     "QLoRA v1 (selected)": "#2563EB",
     "QLoRA v1b": "#F59E0B",
 }
+GT_FILL, GT_STROKE = "#E5E7EB", "#9CA3AF"  # ground-truth bars drawn behind the predictions
 
 
 # ---------------------------------------------------------------- helpers --
@@ -233,25 +241,54 @@ def parse_distributions(markdown: str):
     return series, gt_means
 
 
+def markdown_section(markdown: str, heading: str, level: int = 2) -> str:
+    """Text of the first section whose heading starts with ``heading``."""
+    marker = "#" * level + " "
+    sections = re.split(rf"^{marker}", markdown, flags=re.MULTILINE)
+    section = next((s for s in sections[1:] if s.startswith(heading)), None)
+    if section is None:
+        raise ValueError(f"section '{marker}{heading}' not found in {EXPERIMENTS_PATH.name}")
+    return section
+
+
+def parse_ground_truth(markdown: str) -> dict[str, dict[int, int]]:
+    """Rounded validation ground-truth counts per dimension from the dataset statistics table."""
+    section = markdown_section(markdown, "Validation ground truth after rounding", level=3)
+    row = re.compile(r"^\| (Content|Organization|Expression) \|((?: *\d+ *\|){5})", re.MULTILINE)
+    rows = row.findall(section)
+    if [name for name, _ in rows] != ["Content", "Organization", "Expression"]:
+        raise ValueError("expected three ground-truth rows")
+    return {
+        name.lower(): {score: int(v) for score, v in zip(range(1, 6), cells.strip(" |").split("|"))}
+        for name, cells in rows
+    }
+
+
 def render_distribution_figure() -> str:
-    series, gt_means = parse_distributions(EXPERIMENTS_PATH.read_text(encoding="utf-8"))
+    markdown = EXPERIMENTS_PATH.read_text(encoding="utf-8")
+    series, gt_means = parse_distributions(markdown)
+    truth = parse_ground_truth(markdown)
     labels = list(series)
     totals = {label: sum(series[label]["content"].values()) for label in labels}
 
-    width, height = 960, 456
+    width, height = 960, 476
     left, top, panel_w, panel_gap, plot_h = 56, 138, 276, 26, 230
     y_max = 400
     body: list[str] = []
-    body.append(svg_text(left - 16, 36, "Predicted score distribution on validation", size=20, weight="bold"))
+    body.append(svg_text(left - 16, 36, "Score distribution on validation: ground truth vs predictions",
+                         size=20, weight="bold"))
     body.append(svg_text(
         left - 16, 60,
-        f"Counts of essays per predicted score. Zero-shot has {totals['Zero-shot']} valid outputs, "
-        f"QLoRA runs {totals['QLoRA v1 (selected)']}. Dashed line: mean ground-truth score.",
+        f"Essays per score. Gray: ground truth rounded with ROUND_HALF_UP ({sum(truth['content'].values())} "
+        f"essays, count under each score). Zero-shot has {totals['Zero-shot']} valid outputs.",
         size=13, color=MUTED,
     ))
 
     # legend
     x = left - 16
+    body.append(f'<rect x="{fmt(x)}" y="78" width="14" height="14" rx="2" fill="{GT_FILL}" stroke="{GT_STROKE}"/>')
+    body.append(svg_text(x + 20, 90, "Ground truth", size=13))
+    x += 20 + text_width("Ground truth", 13) + 28
     for label in labels:
         body.append(f'<rect x="{fmt(x)}" y="78" width="14" height="14" rx="2" fill="{SERIES_COLOR[label]}"/>')
         body.append(svg_text(x + 20, 90, label, size=13))
@@ -272,15 +309,16 @@ def render_distribution_figure() -> str:
         body.append(svg_text(x0 + panel_w / 2, top - 12, dimension.capitalize(), size=14,
                              anchor="middle", weight="bold"))
 
-        # ground-truth mean marker on the 1-5 score axis (drawn behind the bars)
-        mean = gt_means[dimension]
-        mx = x0 + (mean - 0.5) * group_w
-        body.append(f'<line x1="{fmt(mx)}" y1="{top}" x2="{fmt(mx)}" y2="{base}" stroke="{MUTED}" '
-                    f'stroke-width="1.5" stroke-dasharray="5 4"/>')
-        body.append(svg_text(mx + 5, top + 12, f"GT mean {mean:.2f}", size=11, color=INK, halo=True))
-
         for score in range(1, 6):
             gx = x0 + (score - 1) * group_w
+            # ground truth: a wide gray bar behind the prediction bars, count printed under the axis
+            gt = truth[dimension][score]
+            gh = gt / y_max * plot_h
+            if gt:
+                body.append(f'<rect x="{fmt(gx + 3)}" y="{fmt(base - gh)}" width="{fmt(group_w - 6)}" '
+                            f'height="{fmt(gh)}" fill="{GT_FILL}" stroke="{GT_STROKE}"/>')
+            body.append(svg_text(gx + group_w / 2, base + 33, f"GT {gt}", size=10, color=MUTED,
+                                 anchor="middle"))
             start = gx + (group_w - bar_w * len(labels) - bar_gap * (len(labels) - 1)) / 2
             for i, label in enumerate(labels):
                 count = series[label][dimension][score]
@@ -293,23 +331,173 @@ def render_distribution_figure() -> str:
                                          color=MUTED, anchor="middle", halo=True))
             body.append(svg_text(gx + group_w / 2, base + 18, score, size=12, color=INK, anchor="middle"))
 
-    body.append(svg_text(left + (3 * panel_w + 2 * panel_gap) / 2, top + plot_h + 42,
-                         "Predicted score", size=13, color=MUTED, anchor="middle"))
+    body.append(svg_text(left + (3 * panel_w + 2 * panel_gap) / 2, top + plot_h + 58,
+                         "Score", size=13, color=MUTED, anchor="middle"))
     body.append(svg_text(left - 16, height - 14, "Source: reports/experiments.md", size=11, color=MUTED))
 
     description = "; ".join(
-        f"{label}: " + ", ".join(
-            f"{d} {dict((s, c) for s, c in series[label][d].items() if c)}" for d in DIMENSIONS
-        )
-        for label in labels
+        [f"Ground truth: " + ", ".join(
+            f"{d} {dict((s, c) for s, c in truth[d].items() if c)} (mean {gt_means[d]:.2f})" for d in DIMENSIONS)]
+        + [f"{label}: " + ", ".join(
+            f"{d} {dict((s, c) for s, c in series[label][d].items() if c)}" for d in DIMENSIONS)
+           for label in labels]
     )
-    return svg_document(width, height, "Predicted score distribution on validation", description, body)
+    return svg_document(width, height, "Score distribution on validation", description, body)
+
+
+# ------------------------------------------------- model comparison --
+def parse_model_metrics(markdown: str) -> list[tuple[str, float, float | None, str]]:
+    """[(label, mean RMSE, mean Spearman or None, note)] from the experiment log."""
+    # global mean baseline: first results table, Mean RMSE / Mean Spearman columns
+    baseline = re.search(r"^\| [\d-]+ \| Global Mean Baseline \|(.*)$", markdown, re.MULTILINE)
+    if baseline is None:
+        raise ValueError("Global Mean Baseline row not found")
+    cells = [c.strip() for c in baseline.group(1).split("|")]
+    rmse, spearman = float(cells[4]), cells[8]
+    rows = [("Mean baseline", rmse, None if spearman == "undefined" else float(spearman), "validation")]
+
+    mean_row = re.compile(r"^\| Mean \| ([\d.]+) \| ([\d.]+) \|", re.MULTILINE)
+    for heading, label in DISTRIBUTION_SECTIONS.items():
+        match = mean_row.search(markdown_section(markdown, heading))
+        if match is None:
+            raise ValueError(f"Mean metric row not found under '## {heading}'")
+        note = "validation, 399 valid outputs" if label == "Zero-shot" else "validation"
+        rows.append((label, float(match.group(1)), float(match.group(2)), note))
+
+    official = markdown_section(markdown, "Official competition results")
+    rmse = re.search(r"Official preliminary RMSE: \*\*([\d.]+)\*\*", official)
+    spearman = re.search(r"Official preliminary Spearman: \*\*([\d.]+)\*\*", official)
+    if rmse is None or spearman is None:
+        raise ValueError("official RMSE/Spearman not found")
+    rows.append(("QLoRA v1, official test", float(rmse.group(1)), float(spearman.group(1)), "hidden test"))
+    return rows
+
+
+def render_comparison_figure() -> str:
+    rows = parse_model_metrics(EXPERIMENTS_PATH.read_text(encoding="utf-8"))
+    colours = {
+        "Mean baseline": "#9CA3AF",
+        "Zero-shot": SERIES_COLOR["Zero-shot"],
+        "QLoRA v1 (selected)": SERIES_COLOR["QLoRA v1 (selected)"],
+        "QLoRA v1b": SERIES_COLOR["QLoRA v1b"],
+        "QLoRA v1, official test": SERIES_COLOR["QLoRA v1 (selected)"],
+    }
+    width, label_w, panel_w, gap = 960, 190, 320, 60
+    top, row_h, bar_h = 104, 34, 20
+    height = top + row_h * len(rows) + 56
+    body: list[str] = []
+    body.append(svg_text(24, 36, "Model comparison (mean of three dimensions)", size=20, weight="bold"))
+    body.append(svg_text(
+        24, 60,
+        "Validation set except the last row, which is the official hidden test. Zero-shot is scored on "
+        "its 399 valid outputs.",
+        size=13, color=MUTED,
+    ))
+    panels = [("Mean RMSE (lower is better)", 1, 1.2, 0.2), ("Mean Spearman (higher is better)", 2, 0.6, 0.1)]
+    for p, (title, index, x_max, step) in enumerate(panels):
+        x0 = 24 + label_w + p * (panel_w + gap)
+        body.append(svg_text(x0, top - 16, title, size=14, weight="bold"))
+        base = top + row_h * len(rows)
+        tick = 0.0
+        while tick <= x_max + 1e-9:
+            tx = x0 + tick / x_max * panel_w
+            body.append(f'<line x1="{fmt(tx)}" y1="{top - 4}" x2="{fmt(tx)}" y2="{base}" '
+                        f'stroke="{GRID if tick else "#9CA3AF"}"/>')
+            body.append(svg_text(tx, base + 16, f"{tick:.1f}", size=11, color=MUTED, anchor="middle"))
+            tick = round(tick + step, 10)
+        for r, row in enumerate(rows):
+            label, value, note = row[0], row[index], row[3]
+            y = top + r * row_h
+            if p == 0:
+                body.append(svg_text(24, y + 15, label, size=13, weight="bold" if "selected" in label else "normal"))
+                body.append(svg_text(24, y + 29, note, size=10, color=MUTED))
+            if value is None:
+                body.append(svg_text(x0 + 6, y + 18, "undefined (constant predictions)", size=12, color=MUTED))
+                continue
+            w = value / x_max * panel_w
+            colour = colours[label]
+            hatched = label.endswith("official test")
+            fill = "url(#hatch)" if hatched else colour
+            body.append(f'<rect x="{x0}" y="{fmt(y + 4)}" width="{fmt(w)}" height="{bar_h}" fill="{fill}" '
+                        f'stroke="{colour}"/>')
+            body.append(svg_text(x0 + w + 6, y + 19, f"{value:.4f}", size=12, color=INK))
+    defs = ('<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" '
+            'patternTransform="rotate(45)"><rect width="6" height="6" fill="#DBEAFE"/>'
+            f'<line x1="0" y1="0" x2="0" y2="6" stroke="{SERIES_COLOR["QLoRA v1 (selected)"]}" stroke-width="3"/>'
+            '</pattern></defs>')
+    body.insert(0, defs)
+    body.append(svg_text(24, height - 14, "Source: reports/experiments.md", size=11, color=MUTED))
+    description = "; ".join(
+        f"{label}: RMSE {rmse:.4f}, Spearman {'undefined' if sp is None else f'{sp:.4f}'} ({note})"
+        for label, rmse, sp, note in rows
+    )
+    return svg_document(width, height, "Model comparison", description, body)
+
+
+# ------------------------------------------------ correlation figure --
+def parse_correlations(markdown: str) -> dict[str, dict[tuple[str, str], float]]:
+    section = markdown_section(markdown, "Pearson correlation between dimensions", level=3)
+    row = re.compile(r"^\| (Train|Validation) \(([\d,]+)\) \| ([\d.]+) \| ([\d.]+) \| ([\d.]+) \|", re.MULTILINE)
+    found = row.findall(section)
+    if [split for split, *_ in found] != ["Train", "Validation"]:
+        raise ValueError("expected Train and Validation correlation rows")
+    result = {}
+    for split, n, co, ce, oe in found:
+        result[f"{split} ({n})"] = {
+            ("content", "organization"): float(co),
+            ("content", "expression"): float(ce),
+            ("organization", "expression"): float(oe),
+        }
+    return result
+
+
+def blend(value: float, lo: float = 0.5, hi: float = 1.0) -> tuple[str, bool]:
+    """Colour for a correlation cell on a white-to-blue scale; returns (hex, use white text)."""
+    t = min(1.0, max(0.0, (value - lo) / (hi - lo)))
+    start, end = (239, 246, 255), (30, 64, 175)
+    rgb = tuple(round(a + (b - a) * t) for a, b in zip(start, end))
+    return "#%02X%02X%02X" % rgb, t > 0.55
+
+
+def render_correlation_figure() -> str:
+    data = parse_correlations(EXPERIMENTS_PATH.read_text(encoding="utf-8"))
+    cell, label_w = 74, 104
+    width, top = 2 * (label_w + 3 * cell) + 3 * 40, 92
+    height = top + 3 * cell + 52
+    body: list[str] = []
+    body.append(svg_text(24, 34, "Correlation between scoring dimensions", size=20, weight="bold"))
+    body.append(svg_text(24, 56, "Pearson r of the unrounded ground-truth scores.", size=13, color=MUTED))
+    names = [d.capitalize() for d in DIMENSIONS]
+    for p, (split, values) in enumerate(data.items()):
+        x0 = 24 + label_w + p * (label_w + 3 * cell + 40)
+        body.append(svg_text(x0 + 1.5 * cell, top - 12, split, size=14, anchor="middle", weight="bold"))
+        for i, a in enumerate(DIMENSIONS):
+            body.append(svg_text(x0 - 8, top + i * cell + cell / 2 + 5, names[i], size=12, anchor="end"))
+            for j, b in enumerate(DIMENSIONS):
+                r = 1.0 if a == b else values.get((a, b), values.get((b, a)))
+                colour, white = blend(r)
+                cx, cy = x0 + j * cell, top + i * cell
+                body.append(f'<rect x="{fmt(cx)}" y="{fmt(cy)}" width="{cell - 2}" height="{cell - 2}" '
+                            f'fill="{colour}"/>')
+                body.append(svg_text(cx + cell / 2 - 1, cy + cell / 2 + 4, "1" if a == b else f"{r:.3f}", size=14,
+                                     color="#FFFFFF" if white else INK, anchor="middle"))
+        for j in range(3):
+            body.append(svg_text(x0 + j * cell + cell / 2, top + 3 * cell + 16, names[j], size=12,
+                                 anchor="middle"))
+    body.append(svg_text(24, height - 12, "Source: reports/experiments.md", size=11, color=MUTED))
+    description = "; ".join(
+        f"{split}: " + ", ".join(f"{a}-{b} {r:.3f}" for (a, b), r in values.items())
+        for split, values in data.items()
+    )
+    return svg_document(width, height, "Correlation between scoring dimensions", description, body)
 
 
 # ---------------------------------------------------------------- main --
 FIGURES = {
     TARGET_SVG: render_target_figure,
     DISTRIBUTION_SVG: render_distribution_figure,
+    COMPARISON_SVG: render_comparison_figure,
+    CORRELATION_SVG: render_correlation_figure,
 }
 
 

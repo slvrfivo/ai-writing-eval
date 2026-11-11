@@ -29,6 +29,8 @@ Qwen3-4B-Instruct를 QLoRA로 파인튜닝했고, loss는 점수 토큰에 가�
 
 공식 test RMSE(0.621)가 validation(0.638)보다 조금 좋게 나왔지만, split과 평가 조건이 달라서 큰 의미를 두지는 않았습니다.
 
+![Mean RMSE and Spearman for each model](docs/assets/model_comparison.svg)
+
 최종 결과: [reports/final_results.md](reports/final_results.md) · 실험 기록: [reports/experiments.md](reports/experiments.md)
 
 ## 출력 형식
@@ -82,9 +84,9 @@ Qwen3-4B-Instruct를 QLoRA로 파인튜닝했고, loss는 점수 토큰에 가�
 
 ### 점수 예측 분포
 
-![Predicted score distribution on validation for zero-shot, QLoRA v1 and v1b](docs/assets/prediction_distribution.svg)
+![Validation score distribution: ground truth vs zero-shot, QLoRA v1 and v1b](docs/assets/prediction_distribution.svg)
 
-zero-shot은 세 영역 모두 점수를 높게 줬고, 구성 점수에서 특히 심했습니다(399건 중 304건이 5점). 파인튜닝 후에는 예측이 대부분 3점과 4점으로 옮겨 갔고(구성: 400건 중 242건, 153건), 정답 평균과도 가까워졌습니다. 점수를 높게 주던 문제는 거의 사라졌지만 v1은 1점과 5점을 한 번도 예측하지 않아서, 이번에는 예측이 가운데로 몰렸습니다. v1b에서 늘어난 5점 예측은 영역마다 최대 6건뿐입니다.
+회색 막대는 예측과 같은 방식으로 반올림한 정답입니다. zero-shot은 세 영역 모두 점수를 높게 줬고, 구성 점수에서 특히 심했습니다(399건 중 304건이 5점, 정답은 41건). 파인튜닝 후에는 예측이 대부분 3점과 4점으로 옮겨 갔습니다(구성: 400건 중 242건, 153건). 점수를 높게 주던 문제는 거의 사라졌지만, 이번에는 예측이 정답보다 좁게 몰렸습니다. v1은 1점과 5점을 한 번도 예측하지 않았고 2점도 영역마다 3–5건뿐인데, 정답에는 내용·구성에 2점이 45–56건, 구성·표현에 5점이 41–53건 있습니다. v1b에서 늘어난 예측은 2점 몇 건과 영역마다 최대 6건의 5점뿐입니다.
 
 ## 토큰 역할별 loss 가중치
 
@@ -129,9 +131,13 @@ v1도 여전히 3점과 4점에 몰려 있어서, v1b에서는 train 데이터�
 | Weighted QLoRA v1 | 0.6384 | 0.5237 |
 | Class-balanced QLoRA v1b | 0.6452 | 0.5189 |
 
-v1b는 1점과 5점을 더 많이 예측했지만 두 지표 모두 조금 나빠져서 v1을 그대로 썼습니다.
+v1b는 2점과 5점을 조금 더 예측했지만(1점은 여전히 없음) 두 지표 모두 조금 나빠져서 v1을 그대로 썼습니다.
 
 v1b는 `per_sample` 정규화로 학습했습니다. 어떤 글의 점수 토큰에 class 가중치 2.0을 주면 그 글의 분모도 같이 커지기 때문에, loss에서 점수 토큰이 차지하는 비중은 2배보다 훨씬 적게 늘어납니다. 세 점수가 모두 드문 점수인 글에서 차이가 가장 큰데, 세 영역 점수는 서로 상관이 높아서 이런 글이 적지 않습니다. 그래서 v1b의 class 가중치는 숫자보다 약하게 들어갔고, 이 결과는 class balancing 자체보다는 이 약한 버전에 대한 결과에 가깝습니다. 의도한 가중치를 확인하려면 `--loss-normalization dataset_mean`으로 v1b를 다시 돌려 봐야 하는데, 아직 돌리지 않았습니다.
+
+![Pearson correlation between content, organization and expression in train and validation](docs/assets/dimension_correlation.svg)
+
+세 영역 점수의 상관은 r = 0.60–0.74라서, 한 영역에서 드문 점수를 받은 글은 다른 영역에서도 드문 점수를 받는 경우가 많습니다.
 
 ## 회고: 점수와 근거 사이
 
@@ -187,7 +193,7 @@ python src/export_merged_hf.py \
 
 ## 테스트
 
-pull request와 `master` push마다 GitHub Actions에서 CPU unit test 97개를 돌립니다.
+pull request와 `master` push마다 GitHub Actions에서 CPU unit test 100개를 돌립니다.
 
 ~~~bash
 python -m unittest discover -s tests -v
