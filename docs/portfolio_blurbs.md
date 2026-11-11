@@ -29,5 +29,3 @@ These descriptions are intentionally limited to claims supported by the reposito
 ## Accuracy notes
 
 Do not describe the weighted objective as the proven cause of the performance improvement: no uniform-loss QLoRA ablation was run.
-
-For competition placement, use the exact recorded results if needed: **49 / 53 teams** in the preliminary leaderboard and **842 points / 44 / 50 models** in the Arena. Avoid wording such as “top finalist.”

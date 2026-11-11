@@ -32,18 +32,8 @@ The selected QLoRA setup improved over both the statistical mean baseline and th
 | RMSE ↓ | **0.6213** |
 | Spearman ↑ | **0.5697** |
 | LLM Judge | **3.0337** |
-| Preliminary leaderboard | **49 / 53 teams** |
-
-The top 50 models advanced to the AI말평 Arena expert human-evaluation stage.
 
 The official hidden-test RMSE (**0.6213**) was slightly lower than local validation (**0.6384**). This supports that the selected checkpoint transferred reasonably to held-out competition data, but it should not be treated as proof that the model did not overfit because the splits and evaluation conditions differ.
-
-## Arena
-
-- Arena points: **842**
-- Rank: **44 / 50 Arena models**
-
-These results are reported as competition outcomes rather than evidence of state-of-the-art performance.
 
 ## Final serving artifact
 

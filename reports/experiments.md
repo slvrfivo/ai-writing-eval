@@ -111,9 +111,6 @@ Selected submission:
 - Official preliminary RMSE: **0.6213**
 - Official preliminary Spearman: **0.5697**
 - Official preliminary LLM Judge: **3.0337**
-- Preliminary leaderboard: **49th of 53 teams**
-- Arena qualification: top 50 models advanced
-- AI말평 Arena: **842 points, 44th of 50 Arena models**
 
 The selected competition artifact was the merged BF16 Hugging Face model:
 
@@ -122,8 +119,3 @@ https://huggingface.co/slvrfivo/qwen3-4b-writing-eval-v1-merged
 During final serving validation, repetitive degeneration was observed on a small subset of merged-model generations. The final Hugging Face artifact therefore set `repetition_penalty=1.05` in `generation_config.json`. The repository records this submission-time override in `configs/submission_generation.json`.
 
 Final summary: [final_results.md](final_results.md)
-
-Official references:
-
-- Preliminary leaderboard: https://kli.korean.go.kr/benchmark/taskOrdtm/taskLeaderBoard.do?clCd=ING_TASK&subMenuId=sub04&taskOrdtmId=205
-- Arena overview: https://kli.korean.go.kr/taskOrdtm/taskList.do?clCd=END_TASK&subMenuId=sub01&taskOrdtmId=215
