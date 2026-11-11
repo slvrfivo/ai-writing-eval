@@ -4,44 +4,35 @@
 
 [![tests](https://github.com/slvrfivo/ai-writing-eval/actions/workflows/tests.yml/badge.svg)](https://github.com/slvrfivo/ai-writing-eval/actions/workflows/tests.yml)
 
-Built for the 2026 **National Institute of Korean Language (NIKL) AI말평 writing-scoring evaluation**.
+My entry for the writing-scoring task in the 2026 AI말평 evaluation run by the National Institute of Korean Language (NIKL). The model reads a writing prompt and a Korean argumentative essay, scores it from 1 to 5 on content, organization and expression, and writes a short Korean rationale for each score.
 
-QLoRA fine-tuning with a score-focused weighted token objective reduced validation RMSE to **0.638** (mean baseline: **0.787**, zero-shot: **1.161**) and raised Spearman from **0.275** to **0.524**. On the hidden official test set, the final submission scored **RMSE 0.621 / Spearman 0.570**.
+I fine-tuned Qwen3-4B-Instruct with QLoRA, using a loss that puts most of its weight on the score tokens. On the hidden official test set it scored RMSE 0.621 and Spearman 0.570.
 
-The selected model was merged into standalone BF16 weights, published on Hugging Face, and validated with vLLM for competition serving.
-
-- **Base model:** `Qwen/Qwen3-4B-Instruct-2507`
-- **Fine-tuning:** 4-bit NF4 QLoRA
-- **Official test:** RMSE **0.6213** / Spearman **0.5697** / LLM Judge **3.0337**
-- **Hugging Face:** https://huggingface.co/slvrfivo/qwen3-4b-writing-eval-v1-merged
+- Base model: `Qwen/Qwen3-4B-Instruct-2507`
+- Fine-tuning: 4-bit NF4 QLoRA
+- Hugging Face: https://huggingface.co/slvrfivo/qwen3-4b-writing-eval-v1-merged
 
 ## Results
 
 | Model / Evaluation | RMSE ↓ | Spearman ↑ | Notes |
 |---|---:|---:|---|
-| Statistical mean baseline | 0.7870 | undefined* | Rounded constant prediction |
+| Statistical mean baseline | 0.7870 | undefined* | Same score for every essay after rounding |
 | Qwen3-4B zero-shot | 1.1612 | 0.2753 | 399 / 400 valid predictions |
-| **Weighted QLoRA v1** | **0.6384** | **0.5237** | Selected local checkpoint |
-| Class-balanced QLoRA v1b | 0.6452 | 0.5189 | Negative ablation |
-| **Official hidden test** | **0.6213** | **0.5697** | LLM Judge 3.0337 |
+| **Weighted QLoRA v1** | 0.6384 | 0.5237 | Selected checkpoint |
+| Class-balanced QLoRA v1b | 0.6452 | 0.5189 | Ablation, not used |
+| Official hidden test (v1) | 0.6213 | 0.5697 | LLM Judge 3.0337 |
 
-*The statistical baseline is constant after official rounding, so its prediction ranks have zero variance and Spearman correlation is mathematically undefined.
+\*After the official rounding, the mean baseline predicts the same score for every essay, so Spearman is undefined.
 
-The preliminary leaderboard placed the submission **49th of 53 teams**. The top 50 models then entered the **AI말평 Arena**, an expert human-evaluation stage; this model recorded **842 points and 44th of 50 Arena models**.
+The submission placed 49th of 53 teams on the preliminary leaderboard. The top 50 moved on to the AI말평 Arena, where human experts compared model outputs; this model got 842 points and finished 44th of 50.
 
-The official hidden-test RMSE (**0.6213**) was slightly lower than the local validation RMSE (**0.6384**). This is encouraging evidence that performance transferred to held-out competition data, but it is **not proof against overfitting** because the splits and evaluation conditions differ.
+The test RMSE came out slightly better than validation (0.621 vs 0.638). The splits and evaluation conditions differ, so I don't read much into that.
 
-Final results: [reports/final_results.md](reports/final_results.md) · Detailed experiment logs: [reports/experiments.md](reports/experiments.md)
+Final results: [reports/final_results.md](reports/final_results.md) · Experiment log: [reports/experiments.md](reports/experiments.md)
 
 ## Task
 
-Given a writing prompt and a Korean argumentative essay, the model predicts 1–5 scores for:
-
-- **Content**
-- **Organization**
-- **Expression**
-
-It also generates a Korean rationale for each dimension in a strict JSON format.
+The output is a single JSON object with a score and a rationale for each dimension:
 
 ~~~json
 {
@@ -64,178 +55,129 @@ It also generates a Korean rationale for each dimension in a strict JSON format.
 
 ### 1. Reproduce the official evaluator
 
-The local evaluator in `src/evaluate.py` reproduces the competition's quantitative scoring behavior:
+Before training anything, I wrote `src/evaluate.py` to match the competition's scoring so that local numbers would be comparable. It:
 
-- validates the required JSON structure,
-- applies `ROUND_HALF_UP` before scoring,
-- computes RMSE and Spearman for Content, Organization, and Expression,
-- handles tied ranks with average ranks.
+- checks the JSON structure and that scores are within 1–5
+- rounds with `ROUND_HALF_UP` before scoring
+- computes RMSE and Spearman for each dimension
+- uses average ranks for ties
 
-This was implemented before model tuning so that local experiments used the same score conversion rule as the competition.
+### 2. Zero-shot baseline
 
-### 2. Establish a zero-shot baseline
+I ran `Qwen/Qwen3-4B-Instruct-2507` in NF4 4-bit with greedy decoding and the official prompt. It got RMSE 1.161 and Spearman 0.275, and produced valid JSON for 399 of 400 essays.
 
-The first LLM baseline used `Qwen/Qwen3-4B-Instruct-2507` with NF4 4-bit quantization and greedy decoding.
-
-It achieved:
-
-- mean RMSE: **1.1612**
-- mean Spearman: **0.2753**
-- strict JSON success: **399 / 400**
-
-The model strongly over-scored essays, especially on Organization, motivating supervised adaptation.
+It gave almost every essay a high score. For organization it gave a 5 to 304 of 399 essays, so fine-tuning was the obvious next step.
 
 ### 3. QLoRA fine-tuning
 
-The training environment provided an NVIDIA A100 MIG instance with about **9.5 GiB VRAM**, so the project used QLoRA rather than full-parameter fine-tuning.
+The training machine was an A100 MIG slice with about 9.5 GiB of VRAM, which ruled out full fine-tuning. The selected run used:
 
-The selected run used:
-
-- NF4 4-bit base model
-- BF16 compute
-- LoRA over all linear layers
-- `r=16`, `alpha=32`, `dropout=0.05`
-- 1 epoch
-- learning rate `5e-5`
-- effective batch size 8
+- NF4 4-bit base model, BF16 compute
+- LoRA on all linear layers, `r=16`, `alpha=32`, `dropout=0.05`
+- 1 epoch, learning rate `5e-5`, effective batch size 8
 - max sequence length 2048
 
-Full configuration: [configs/qwen3_4b_qlora_v1.json](configs/qwen3_4b_qlora_v1.json)
+Full config: [configs/qwen3_4b_qlora_v1.json](configs/qwen3_4b_qlora_v1.json)
 
 ### Organization prediction distribution
 
 ![Organization prediction distribution: zero-shot vs QLoRA v1](docs/assets/organization_prediction_distribution.svg)
 
-Zero-shot predicted the maximum Organization score for **304 of 399** valid samples. After QLoRA fine-tuning, predictions shifted mostly to scores 3 and 4 (**242 / 153 of 400**), substantially reducing over-scoring while revealing a remaining regression-to-the-mean pattern.
+After fine-tuning, organization predictions moved mostly to 3 and 4 (242 and 153 of 400). The over-scoring is largely gone, but predictions now bunch up in the middle.
 
-## Score-focused Weighted Token Objective
+## Weighted token loss
 
-The task evaluates the predicted scores directly, but a standard causal language-model loss treats all supervised output tokens similarly.
-
-To reflect the task structure, each supervised token was mapped to a semantic role and assigned a different loss weight:
+The competition only scores the numbers, but a standard language-model loss treats every output token about the same. So I tagged each target token by role and gave each role its own weight:
 
 | Token role | Loss weight |
 |---|---:|
 | Prompt | 0.00 |
 | JSON structure | 0.25 |
-| **Score** | **10.00** |
+| Score | 10.00 |
 | Rationale | 0.05 |
-
-The training objective is:
 
 ~~~text
 weighted loss = Σ(token loss × token weight) / Σ(token weight)
 ~~~
 
-This design emphasizes the score tokens while still supervising valid JSON structure and rationale generation.
+I picked these weights by hand for this task. There was no hyperparameter search.
 
-The weights were chosen **heuristically for this competition setup**, not from a systematic hyperparameter search.
+- `src/qlora/tokenization.py`: maps tokens to roles
+- `src/qlora/loss.py`: weighted causal cross entropy
+- `src/qlora/training.py`: plugs the loss into the Transformers Trainer
 
-Implementation:
+I never trained a QLoRA model with uniform loss, so I can't say how much of the improvement comes from the weighting and how much from fine-tuning in general.
 
-- `src/qlora/tokenization.py` — maps tokens to semantic roles
-- `src/qlora/loss.py` — computes weighted causal cross entropy
-- `src/qlora/training.py` — integrates the objective with Transformers Trainer
+## Ablation: class-balanced score weights
 
-> A uniform-loss QLoRA ablation was not run, so the gain over zero-shot or the statistical baseline should be attributed to the **overall QLoRA fine-tuning setup**, not specifically to the weighted objective.
-
-## Ablation: Class-balanced Score Weighting
-
-The selected model still concentrated predictions around scores 3 and 4, so a second run added class-dependent weights to score tokens to emphasize rare labels.
+v1 still bunched its predictions around 3 and 4, so for v1b I also weighted score tokens by how rare each label is in the training set.
 
 | Model | RMSE ↓ | Spearman ↑ |
 |---|---:|---:|
-| **Weighted QLoRA v1** | **0.6384** | **0.5237** |
+| Weighted QLoRA v1 | 0.6384 | 0.5237 |
 | Class-balanced QLoRA v1b | 0.6452 | 0.5189 |
 
-The class-balanced version produced more extreme predictions, but overall RMSE and Spearman became slightly worse. It was therefore retained as a negative ablation rather than replacing v1.
+v1b predicted more 1s and 5s, but both metrics got slightly worse, so I kept v1.
 
-## Postmortem: score accuracy vs rationale quality
+## Postmortem: scores vs rationales
 
-The training objective deliberately placed much more weight on score tokens (**10.0**) than rationale tokens (**0.05**), and the rationale targets themselves were rubric-oriented templates. In the experiment log, the resulting rationales became noticeably simpler after fine-tuning.
+Weighting score tokens at 10.0 and rationale tokens at 0.05, with template-style rationale targets, probably hurt the rationales. They got noticeably simpler after fine-tuning (noted in the experiment log). The LLM Judge score (3.03) and the Arena result, where experts also read the rationales, fit that explanation, but I didn't run anything that isolates the cause.
 
-One plausible trade-off is that the setup optimized the quantitative score metrics more aggressively than rationale quality. That interpretation is **consistent with**, but not proven by, the official **LLM Judge score of 3.0337** and the later Arena stage, where human experts compared model outputs including their rationales. The available experiments do not isolate rationale weighting as the cause of the final placement.
+If I did it again, I would:
 
-If repeating the project, I would evaluate this trade-off explicitly: run a uniform-loss baseline, sweep rationale weights, use richer rationale targets, and consider a two-stage design where one model predicts scores and a second stage generates explanations conditioned on those scores. I would also track a rationale-quality metric during model selection instead of optimizing primarily for RMSE and Spearman.
+- run a uniform-loss baseline and sweep the rationale weight
+- use richer rationale targets
+- try two stages: one model predicts the scores, a second writes explanations given those scores
+- use a rationale-quality metric in model selection, not just RMSE and Spearman
 
-## Export and Serving
+## Export and serving
 
-The selected PEFT adapter was merged into the pinned BF16 base model and exported as a standalone Hugging Face model.
+I merged the adapter into the pinned BF16 base model and exported it as a standalone Hugging Face model. The export script runs merge → reload → model/tokenizer invariant check → strict-JSON smoke test.
 
-The export pipeline performs:
+In final submission testing, a few generations from the merged model got stuck repeating themselves, so the published model sets `"repetition_penalty": 1.05` in `generation_config.json`. The value is kept in [configs/submission_generation.json](configs/submission_generation.json), and the export CLI writes it into the exported config before the smoke test.
 
-**merge → local reload → model/tokenizer invariant check → strict JSON smoke test**
-
-During final submission testing, repetitive degeneration appeared on a small subset of merged-model generations. The final Hugging Face artifact therefore used:
-
-~~~json
-{
-  "repetition_penalty": 1.05
-}
-~~~
-
-in `generation_config.json`.
-
-The override is recorded in [configs/submission_generation.json](configs/submission_generation.json). The BF16 export CLI loads this file and writes the value into the exported Hugging Face `generation_config.json` before local reload and strict-JSON smoke validation.
-
-The final artifact was then validated through a vLLM OpenAI-compatible serving path using the competition-required health, model-listing, and chat-completions endpoints.
-
-A Hugging Face model-card draft is kept in [docs/huggingface_model_card.md](docs/huggingface_model_card.md).
+I also served the final model with vLLM's OpenAI-compatible server and checked the health, model-list and chat-completions endpoints the competition required. A draft model card is in [docs/huggingface_model_card.md](docs/huggingface_model_card.md).
 
 ## Reproduction
 
-Install dependencies:
+Environment details: [docs/reproducibility.md](docs/reproducibility.md)
 
 ~~~bash
 pip install -r requirements-train-gpu.txt
-~~~
 
-Train the selected QLoRA configuration:
-
-~~~bash
+# Train the selected QLoRA config
 python src/train_qlora.py \
   --input data/raw/train.jsonl \
   --output-dir checkpoints/qwen3_4b_qlora_v1 \
   --config configs/qwen3_4b_qlora_v1.json
-~~~
 
-Run validation inference with the adapter:
-
-~~~bash
+# Run validation inference with the adapter
 python src/zero_shot.py \
   --input data/raw/validation.jsonl \
   --output-dir outputs/qlora_v1 \
   --adapter checkpoints/qwen3_4b_qlora_v1/final_adapter
-~~~
 
-Evaluate predictions:
-
-~~~bash
+# Evaluate
 python src/evaluate.py \
   --predictions outputs/qlora_v1/predictions.jsonl \
   --require-rationale
-~~~
 
-Merge to standalone BF16 weights:
-
-~~~bash
+# Merge into standalone BF16 weights
 python src/export_merged_hf.py \
   --adapter checkpoints/qwen3_4b_qlora_v1/final_adapter \
   --output-dir /path/to/submission/qwen3-4b-writing-eval-v1-merged \
   --validation-input data/raw/validation.jsonl
 ~~~
 
-Environment details and reproducibility notes: [docs/reproducibility.md](docs/reproducibility.md)
+## Tests
 
-## Testing
-
-GitHub Actions runs the CPU unit-test suite on every pull request and push to `master`. The current suite contains **85 tests**.
+GitHub Actions runs the 85 CPU unit tests on every pull request and every push to `master`.
 
 ~~~bash
 python -m unittest discover -s tests -v
 ~~~
 
-## Repository Layout
+## Repository layout
 
 ~~~text
 ai-writing-eval/
@@ -254,21 +196,19 @@ ai-writing-eval/
 
 ## Limitations
 
-- The training set contains 2,000 essays.
-- QLoRA v1 still shows regression toward middle scores.
-- Scores 1 and 5 are harder to predict than scores 3 and 4.
-- A uniform-loss QLoRA ablation was **not** performed, so the specific contribution of weighted token loss is not isolated.
-- Class balancing increased extreme predictions but reduced overall validation performance.
-- Local validation reproduces RMSE and Spearman, but not the official LLM Judge.
-- Performance outside the competition prompts, domain, and rubric has not been established.
+- The training set is only 2,000 essays.
+- v1 still pulls predictions toward the middle; 1s and 5s are harder to get right than 3s and 4s.
+- Without a uniform-loss run, the effect of the weighted loss on its own is unknown.
+- The local evaluator reproduces RMSE and Spearman but not the official LLM Judge.
+- I haven't tested the model outside the competition's prompts, domain and rubric.
 
-## Data and License
+## Data and license
 
-Competition data is not redistributed in this repository. Data, checkpoints, generated outputs, and model weights are excluded through `.gitignore`.
+Competition data is not included in this repository. Data, checkpoints, generated outputs and model weights are excluded via `.gitignore`.
 
-Project code is released under the Apache License 2.0. Third-party models, competition data, and official materials remain subject to their own terms.
+The code is released under the Apache License 2.0. Third-party models, competition data and official materials are subject to their own terms.
 
-## Official References
+## Official references
 
 - Task overview: https://kli.korean.go.kr/benchmark/taskOrdtm/taskList.do?taskOrdtmId=205
 - Preliminary leaderboard: https://kli.korean.go.kr/benchmark/taskOrdtm/taskLeaderBoard.do?clCd=ING_TASK&subMenuId=sub04&taskOrdtmId=205
