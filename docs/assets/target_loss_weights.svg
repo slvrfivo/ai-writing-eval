@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="448" viewBox="0 0 960 448" role="img" aria-labelledby="title desc">
+<title id="title">Loss weight by token role</title>
+<desc id="desc">The compact JSON training target for scores 4, 3 and 4 with each span coloured by role: score tokens weight 10.00, JSON structure 0.25, rationale 0.05, prompt 0.00.</desc>
+<rect width="960" height="448" fill="#FFFFFF"/>
+<text x="40" y="36" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="20" fill="#1F2937" text-anchor="start" font-weight="bold">Loss weight by token role</text>
+<text x="40" y="60" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#6B7280" text-anchor="start" font-weight="normal">Training target for scores 4 / 3 / 4, built by src/qlora/targets.py. Weights from configs/qwen3_4b_qlora_v1.json.</text>
+<rect x="40" y="84" width="880" height="40" rx="6" fill="#FFFFFF" stroke="#D1D5DB" stroke-dasharray="4 3"/>
+<text x="54" y="109" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#6B7280" text-anchor="start" font-weight="normal">System prompt + writing prompt + essay (chat template)</text>
+<text x="906" y="109" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#6B7280" text-anchor="end" font-weight="bold">Prompt  weight 0.00</text>
+<text x="40" y="154" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="13" fill="#1F2937" text-anchor="start" font-weight="bold">Assistant target (what the model learns to generate)</text>
+<rect x="40" y="158" width="14.4" height="25" rx="4" fill="#E5E7EB"/>
+<text x="43" y="176" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="8.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">{</text>
+<rect x="56.4" y="158" width="165.6" height="25" rx="4" fill="#E5E7EB"/>
+<text x="59.4" y="176" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="159.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve">"content":{"score":</text>
+<rect x="224" y="158" width="20.4" height="25" rx="4" fill="#C2410C"/>
+<text x="230" y="176" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#FFFFFF" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">4</text>
+<rect x="246.4" y="158" width="123.6" height="25" rx="4" fill="#E5E7EB"/>
+<text x="249.4" y="176" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="117.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve">,"rationale":"</text>
+<rect x="68" y="192" width="616.4" height="25" rx="4" fill="#EFF6FF"/>
+<text x="71" y="210" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#1E40AF" font-weight="normal" textLength="610.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">주장과 근거가 전반적으로 충실하고 논리적 연결이 타당하여 기준을 잘 충족하는 수준이다.</text>
+<rect x="686.4" y="192" width="22.8" height="25" rx="4" fill="#E5E7EB"/>
+<text x="689.4" y="210" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="16.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">"}</text>
+<rect x="711.2" y="192" width="14.4" height="25" rx="4" fill="#E5E7EB"/>
+<text x="714.2" y="210" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="8.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">,</text>
+<rect x="40" y="226" width="207.6" height="25" rx="4" fill="#E5E7EB"/>
+<text x="43" y="244" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="201.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve">"organization":{"score":</text>
+<rect x="249.6" y="226" width="20.4" height="25" rx="4" fill="#C2410C"/>
+<text x="255.6" y="244" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#FFFFFF" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">3</text>
+<rect x="272" y="226" width="123.6" height="25" rx="4" fill="#E5E7EB"/>
+<text x="275" y="244" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="117.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve">,"rationale":"</text>
+<rect x="68" y="260" width="706" height="25" rx="4" fill="#EFF6FF"/>
+<text x="71" y="278" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#1E40AF" font-weight="normal" textLength="700" lengthAdjust="spacingAndGlyphs" xml:space="preserve">글의 구조와 문단 연결 및 전개 순서에 장점과 약점이 함께 있어 기준을 부분적으로 충족하는 수준이다.</text>
+<rect x="776" y="260" width="22.8" height="25" rx="4" fill="#E5E7EB"/>
+<text x="779" y="278" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="16.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">"}</text>
+<rect x="800.8" y="260" width="14.4" height="25" rx="4" fill="#E5E7EB"/>
+<text x="803.8" y="278" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="8.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">,</text>
+<rect x="40" y="294" width="190.8" height="25" rx="4" fill="#E5E7EB"/>
+<text x="43" y="312" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="184.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">"expression":{"score":</text>
+<rect x="232.8" y="294" width="20.4" height="25" rx="4" fill="#C2410C"/>
+<text x="238.8" y="312" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#FFFFFF" font-weight="bold" textLength="8.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">4</text>
+<rect x="255.2" y="294" width="123.6" height="25" rx="4" fill="#E5E7EB"/>
+<text x="258.2" y="312" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="117.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve">,"rationale":"</text>
+<rect x="68" y="328" width="616.4" height="25" rx="4" fill="#EFF6FF"/>
+<text x="71" y="346" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#1E40AF" font-weight="normal" textLength="610.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">문장이 전반적으로 자연스럽고 어휘와 어문 규범이 적절하여 기준을 잘 충족하는 수준이다.</text>
+<rect x="686.4" y="328" width="22.8" height="25" rx="4" fill="#E5E7EB"/>
+<text x="689.4" y="346" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="16.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve">"}</text>
+<rect x="711.2" y="328" width="14.4" height="25" rx="4" fill="#E5E7EB"/>
+<text x="714.2" y="346" font-family="Consolas, 'D2Coding', 'Noto Sans Mono CJK KR', monospace" font-size="14" fill="#374151" font-weight="normal" textLength="8.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve">}</text>
+<rect x="40" y="381" width="16" height="16" rx="3" fill="#C2410C"/>
+<text x="64" y="394" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="14" fill="#1F2937" text-anchor="start" font-weight="bold">Score  ×10.00</text>
+<rect x="209.2" y="381" width="16" height="16" rx="3" fill="#E5E7EB" stroke="#9CA3AF"/>
+<text x="233.2" y="394" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="14" fill="#1F2937" text-anchor="start" font-weight="normal">JSON structure  ×0.25</text>
+<rect x="445.6" y="381" width="16" height="16" rx="3" fill="#EFF6FF" stroke="#9CA3AF"/>
+<text x="469.6" y="394" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="14" fill="#1F2937" text-anchor="start" font-weight="normal">Rationale  ×0.05</text>
+<text x="40" y="424" font-family="Arial, 'Noto Sans KR', 'Malgun Gothic', sans-serif" font-size="12" fill="#6B7280" text-anchor="start" font-weight="normal">Tokens take the role of the span they overlap (character offsets). Rationales are fixed rubric templates, one per dimension and score.</text>
+</svg>

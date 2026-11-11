@@ -80,11 +80,11 @@ Qwen3-4B-Instruct를 QLoRA로 파인튜닝했고, loss는 점수 토큰에 가�
 
 전체 설정: [configs/qwen3_4b_qlora_v1.json](configs/qwen3_4b_qlora_v1.json)
 
-### 구성 점수 예측 분포
+### 점수 예측 분포
 
-![Organization prediction distribution: zero-shot vs QLoRA v1](docs/assets/organization_prediction_distribution.svg)
+![Predicted score distribution on validation for zero-shot, QLoRA v1 and v1b](docs/assets/prediction_distribution.svg)
 
-파인튜닝 후에는 구성 점수 예측이 대부분 3점과 4점(400건 중 242건, 153건)으로 옮겨 갔습니다. 점수를 높게 주던 문제는 거의 사라졌지만, 이번에는 예측이 가운데로 몰렸습니다.
+zero-shot은 세 영역 모두 점수를 높게 줬고, 구성 점수에서 특히 심했습니다(399건 중 304건이 5점). 파인튜닝 후에는 예측이 대부분 3점과 4점으로 옮겨 갔고(구성: 400건 중 242건, 153건), 정답 평균과도 가까워졌습니다. 점수를 높게 주던 문제는 거의 사라졌지만 v1은 1점과 5점을 한 번도 예측하지 않아서, 이번에는 예측이 가운데로 몰렸습니다. v1b에서 늘어난 5점 예측은 영역마다 최대 6건뿐입니다.
 
 ## 토큰 역할별 loss 가중치
 
@@ -96,6 +96,10 @@ RMSE와 Spearman은 예측한 점수로 계산되기 때문에, 근거 설명보
 | JSON 구조 | 0.25 |
 | 점수 | 10.00 |
 | 근거(rationale) | 0.05 |
+
+![Training target for scores 4/3/4 with each span coloured by its loss weight](docs/assets/target_loss_weights.svg)
+
+점수가 4 / 3 / 4인 글의 실제 학습 정답을 `src/qlora/targets.py`로 만든 그림입니다. 토큰은 자기가 걸친 문자 구간의 역할을 따릅니다. 학습 정답의 근거 문장은 위 출력 예시처럼 자유롭게 쓴 문장이 아니라, 영역과 점수마다 하나씩 정해 둔 루브릭 문장입니다.
 
 ~~~text
 weighted loss = Σ(token loss × token weight) / Σ(token weight)
@@ -183,7 +187,7 @@ python src/export_merged_hf.py \
 
 ## 테스트
 
-pull request와 `master` push마다 GitHub Actions에서 CPU unit test 93개를 돌립니다.
+pull request와 `master` push마다 GitHub Actions에서 CPU unit test 97개를 돌립니다.
 
 ~~~bash
 python -m unittest discover -s tests -v

@@ -80,11 +80,11 @@ The training machine was an A100 MIG slice with about 9.5 GiB of VRAM, which rul
 
 Full config: [configs/qwen3_4b_qlora_v1.json](configs/qwen3_4b_qlora_v1.json)
 
-### Organization prediction distribution
+### Prediction distribution
 
-![Organization prediction distribution: zero-shot vs QLoRA v1](docs/assets/organization_prediction_distribution.svg)
+![Predicted score distribution on validation for zero-shot, QLoRA v1 and v1b](docs/assets/prediction_distribution.svg)
 
-After fine-tuning, organization predictions moved mostly to 3 and 4 (242 and 153 of 400). The over-scoring is largely gone, but predictions now bunch up in the middle.
+Zero-shot over-scored every dimension, most of all organization (5 for 304 of 399 essays). After fine-tuning, predictions moved mostly to 3 and 4 (organization: 242 and 153 of 400) and sit close to the ground-truth means. The over-scoring is largely gone, but v1 never predicts 1 or 5, so predictions now bunch up in the middle. v1b adds only a handful of 5s (at most 6 per dimension).
 
 ## Weighted token loss
 
@@ -96,6 +96,10 @@ RMSE and Spearman depend on the predicted scores, so I assigned higher loss weig
 | JSON structure | 0.25 |
 | Score | 10.00 |
 | Rationale | 0.05 |
+
+![Training target for scores 4/3/4 with each span coloured by its loss weight](docs/assets/target_loss_weights.svg)
+
+This is the actual training target for scores 4 / 3 / 4, built by `src/qlora/targets.py`. Each token takes the role of the character span it overlaps. The rationales in the targets are fixed rubric sentences (one per dimension and score), not the free-form text in the output example above.
 
 ~~~text
 weighted loss = Σ(token loss × token weight) / Σ(token weight)
@@ -183,7 +187,7 @@ python src/export_merged_hf.py \
 
 ## Tests
 
-GitHub Actions runs the 93 CPU unit tests on every pull request and every push to `master`.
+GitHub Actions runs the 97 CPU unit tests on every pull request and every push to `master`.
 
 ~~~bash
 python -m unittest discover -s tests -v
