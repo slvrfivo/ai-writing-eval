@@ -64,6 +64,14 @@ class QLoRACliTests(unittest.TestCase):
         )
         self.assertFalse(args.class_balancing)
 
+    def test_training_accepts_loss_normalization_override(self) -> None:
+        base = ["--input", "train.jsonl", "--output-dir", "checkpoints/qlora-v1"]
+        self.assertIsNone(parse_training_args(base).loss_normalization)
+        args = parse_training_args(base + ["--loss-normalization", "dataset_mean"])
+        self.assertEqual(args.loss_normalization, "dataset_mean")
+        with self.assertRaises(SystemExit):
+            parse_training_args(base + ["--loss-normalization", "global"])
+
 
 if __name__ == "__main__":
     unittest.main()

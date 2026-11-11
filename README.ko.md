@@ -17,12 +17,13 @@ Qwen3-4B-Instruct를 QLoRA로 파인튜닝했고, loss는 점수 토큰에 가�
 | 모델 / 평가 | RMSE ↓ | Spearman ↑ | 비고 |
 |---|---:|---:|---|
 | 통계 평균 baseline | 0.7870 | 정의 안 됨* | 반올림하면 모든 글에 같은 점수 |
-| Qwen3-4B zero-shot | 1.1612 | 0.2753 | 400건 중 399건 valid |
+| Qwen3-4B zero-shot | 1.1612 | 0.2753 | 올바른 출력 399건으로 계산† |
 | **Weighted QLoRA v1** | 0.6384 | 0.5237 | 최종 선택 |
 | Class-balanced QLoRA v1b | 0.6452 | 0.5189 | ablation, 채택 안 함 |
 | 공식 hidden test (v1) | 0.6213 | 0.5697 | LLM Judge 3.0337 |
 
 \*평균 baseline은 공식 반올림을 거치면 모든 글에 같은 점수를 주게 돼서 Spearman을 계산할 수 없습니다.
+†zero-shot 출력 1건이 올바른 JSON이 아니어서 zero-shot 지표에서 뺐습니다. 나머지 validation 행은 400건 전체로 계산했기 때문에, zero-shot 행은 완전히 같은 집합에서 비교한 값은 아닙니다.
 
 예선 이후에는 전문가가 모델 출력을 직접 비교하는 AI말평 Arena 단계에도 참가했습니다.
 
@@ -100,6 +101,13 @@ RMSE와 Spearman은 예측한 점수로 계산되기 때문에, 근거 설명보
 weighted loss = Σ(token loss × token weight) / Σ(token weight)
 ~~~
 
+이 합은 micro-batch 하나 안에서 계산됩니다. 기록된 학습은 `per_device_train_batch_size=1`, gradient accumulation 8이었기 때문에, 실제로는 글 한 편마다 자기 가중치 합으로 나눈 뒤 8편을 평균한 셈입니다. 같은 글 안의 토큰끼리 가중치를 다르게 주는 건 의도대로 작동하지만, 글 하나의 점수 토큰 전체를 올리는 가중치는 분모도 같이 커져서 효과가 상당 부분 상쇄됩니다 (아래 ablation 참고).
+
+config의 `loss_normalization`(또는 명령행 `--loss-normalization`)으로 방식을 고를 수 있습니다.
+
+- `per_sample` (기본값, v1·v1b에서 사용): 글마다 자기 가중치 합으로 나눔
+- `dataset_mean`: 모든 글을 같은 상수(학습 데이터의 평균 가중치 합)로 나눠서, 글 단위 가중치가 그대로 반영됨
+
 가중치는 탐색 없이 직접 정한 값입니다.
 
 - `src/qlora/tokenization.py`: 토큰에 역할 붙이기
@@ -119,6 +127,8 @@ v1도 여전히 3점과 4점에 몰려 있어서, v1b에서는 train 데이터�
 
 v1b는 1점과 5점을 더 많이 예측했지만 두 지표 모두 조금 나빠져서 v1을 그대로 썼습니다.
 
+v1b는 `per_sample` 정규화로 학습했습니다. 어떤 글의 점수 토큰에 class 가중치 2.0을 주면 그 글의 분모도 같이 커지기 때문에, loss에서 점수 토큰이 차지하는 비중은 2배보다 훨씬 적게 늘어납니다. 세 점수가 모두 드문 점수인 글에서 차이가 가장 큰데, 세 영역 점수는 서로 상관이 높아서 이런 글이 적지 않습니다. 그래서 v1b의 class 가중치는 숫자보다 약하게 들어갔고, 이 결과는 class balancing 자체보다는 이 약한 버전에 대한 결과에 가깝습니다. 의도한 가중치를 확인하려면 `--loss-normalization dataset_mean`으로 v1b를 다시 돌려 봐야 하는데, 아직 돌리지 않았습니다.
+
 ## 회고: 점수와 근거 사이
 
 점수 토큰에 10.0, 근거 토큰에 0.05를 주고 근거 정답도 템플릿에 가깝게 만들다 보니, 근거 품질이 떨어졌을 가능성이 큽니다. 실험 기록에도 파인튜닝 후 근거가 눈에 띄게 단순해졌다고 적어 뒀습니다. LLM Judge 점수(3.03)도 이 설명과 맞긴 하지만, 원인을 따로 떼어 확인한 실험은 없습니다.
@@ -126,6 +136,8 @@ v1b는 1점과 5점을 더 많이 예측했지만 두 지표 모두 조금 나�
 다시 한다면 이렇게 해 보겠습니다.
 
 - 가중치 없는 baseline을 돌리고 근거 가중치를 여러 값으로 바꿔 보기
+- class balancing을 `dataset_mean` 정규화로 다시 돌려 보기
+- 실제 제출본(merged BF16, `repetition_penalty=1.05`)으로 validation을 다시 재기. 위 validation 수치는 4-bit base model에 adapter를 붙이고 repetition penalty 없이 잰 값임
 - 근거 정답을 더 풍부하게 만들기
 - 점수 예측과 근거 생성을 두 단계로 나누기 (첫 모델이 점수를 내고, 두 번째 모델이 그 점수를 보고 근거를 씀)
 - 모델을 고를 때 RMSE, Spearman뿐 아니라 근거 품질 지표도 보기
@@ -151,8 +163,8 @@ python src/train_qlora.py \
   --output-dir checkpoints/qwen3_4b_qlora_v1 \
   --config configs/qwen3_4b_qlora_v1.json
 
-# adapter로 validation 추론
-python src/zero_shot.py \
+# adapter로 validation 추론 (--adapter를 빼면 zero-shot)
+python src/infer.py \
   --input data/raw/validation.jsonl \
   --output-dir outputs/qlora_v1 \
   --adapter checkpoints/qwen3_4b_qlora_v1/final_adapter
@@ -171,7 +183,7 @@ python src/export_merged_hf.py \
 
 ## 테스트
 
-pull request와 `master` push마다 GitHub Actions에서 CPU unit test 85개를 돌립니다.
+pull request와 `master` push마다 GitHub Actions에서 CPU unit test 93개를 돌립니다.
 
 ~~~bash
 python -m unittest discover -s tests -v

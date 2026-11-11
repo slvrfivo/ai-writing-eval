@@ -55,6 +55,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
         help="override class_balancing.enabled from config",
     )
+    parser.add_argument(
+        "--loss-normalization",
+        choices=("per_sample", "dataset_mean"),
+        default=None,
+        help="override loss_normalization from config (default: per_sample)",
+    )
     return parser.parse_args(argv)
 
 
@@ -68,6 +74,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         QLoRAConfig.from_json(args.config.resolve())
         .with_max_seq_length(args.max_seq_length)
         .with_class_balancing(args.class_balancing)
+        .with_loss_normalization(args.loss_normalization)
     )
 
     tokenizer = load_training_tokenizer(config)

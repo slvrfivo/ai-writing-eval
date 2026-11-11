@@ -52,14 +52,16 @@ python src/train_qlora.py \
   --config configs/qwen3_4b_qlora_v1.json
 ~~~
 
-The training pipeline records run metadata including the model revision, package versions, prompt snapshot hash, sequence-length statistics, loss weights, QLoRA configuration, optimizer-step count, and CUDA memory measurements.
+The training pipeline records run metadata including the model revision, package versions, prompt snapshot hash, sequence-length statistics, loss weights, loss normalization, QLoRA configuration, optimizer-step count, and CUDA memory measurements.
+
+The recorded v1 and v1b runs used the default `per_sample` loss normalization. To keep sample-level weights such as class balancing at full strength, add `--loss-normalization dataset_mean`; see the "Weighted token loss" section of the README.
 
 ## Local evaluation
 
-Run adapter inference:
+Run adapter inference (`src/zero_shot.py` still works as an alias):
 
 ~~~bash
-python src/zero_shot.py \
+python src/infer.py \
   --input data/raw/validation.jsonl \
   --output-dir outputs/qlora_v1 \
   --adapter "$CHECKPOINT_DIR/qwen3_4b_qlora_v1/final_adapter"

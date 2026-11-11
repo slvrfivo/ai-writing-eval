@@ -3,7 +3,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from src.zero_shot import parse_args
+from src.infer import parse_args
+from src.zero_shot import parse_args as legacy_parse_args
 
 
 class ZeroShotCliTests(unittest.TestCase):
@@ -38,6 +39,9 @@ class ZeroShotCliTests(unittest.TestCase):
             ]
         )
         self.assertIsNone(args.adapter)
+
+    def test_legacy_zero_shot_entry_point_still_works(self) -> None:
+        self.assertIs(legacy_parse_args, parse_args)
 
 
 if __name__ == "__main__":
