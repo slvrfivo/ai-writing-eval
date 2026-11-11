@@ -20,7 +20,7 @@ except ImportError:  # python src/train_qlora.py
 from .config import QLoRAConfig
 from .class_balancing import ClassBalanceResult, calculate_class_balance
 from .data import TrainingSample, iter_training_samples
-from .loss import weighted_trainer_class
+from .loss import mean_supervised_weight, weighted_trainer_class
 from .modeling import LoadedQLoRA, trainable_parameter_stats
 from .tokenization import (
     MIXED_BOUNDARY_POLICY,
@@ -75,6 +75,17 @@ def prepare_training_data(
         examples=examples,
         token_length_stats=stats,
         class_balance=class_balance,
+    )
+
+
+def loss_denominator_for(
+    config: QLoRAConfig, examples: Iterable[TokenizedExample]
+) -> float | None:
+    """None keeps per-sample normalization; dataset_mean fixes one denominator."""
+    if config.loss_normalization == "per_sample":
+        return None
+    return mean_supervised_weight(
+        [(example.labels, example.loss_weights) for example in examples]
     )
 
 
@@ -168,6 +179,8 @@ def run_qlora_training(
         train_dataset=dataset,
         data_collator=collator,
     )
+    loss_denominator = loss_denominator_for(config, prepared.examples)
+    trainer.loss_denominator = loss_denominator
 
     expected_steps = math.ceil(
         len(dataset)
@@ -189,6 +202,8 @@ def run_qlora_training(
         "target_construction_version": config.target_construction_version,
         "mixed_boundary_token_policy": MIXED_BOUNDARY_POLICY,
         "loss_weights": dict(config.loss_weights),
+        "loss_normalization": config.loss_normalization,
+        "loss_denominator": loss_denominator,
         "class_balancing": prepared.class_balance.as_dict(),
         "quantization_config": dict(config.quantization),
         "lora_config": dict(config.lora),

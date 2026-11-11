@@ -17,12 +17,13 @@ I fine-tuned Qwen3-4B-Instruct with QLoRA, using a loss that puts most of its we
 | Model / Evaluation | RMSE ↓ | Spearman ↑ | Notes |
 |---|---:|---:|---|
 | Statistical mean baseline | 0.7870 | undefined* | Same score for every essay after rounding |
-| Qwen3-4B zero-shot | 1.1612 | 0.2753 | 399 / 400 valid predictions |
+| Qwen3-4B zero-shot | 1.1612 | 0.2753 | Scored on the 399 valid outputs† |
 | **Weighted QLoRA v1** | 0.6384 | 0.5237 | Selected checkpoint |
 | Class-balanced QLoRA v1b | 0.6452 | 0.5189 | Ablation, not used |
 | Official hidden test (v1) | 0.6213 | 0.5697 | LLM Judge 3.0337 |
 
 \*After the official rounding, the mean baseline predicts the same score for every essay, so Spearman is undefined.
+†One zero-shot output was invalid JSON and is left out of the zero-shot metrics. Every other validation row uses all 400 essays, so the zero-shot row is not on exactly the same set.
 
 After the preliminary round, the model also took part in the AI말평 Arena, where human experts compared model outputs side by side.
 
@@ -100,6 +101,13 @@ RMSE and Spearman depend on the predicted scores, so I assigned higher loss weig
 weighted loss = Σ(token loss × token weight) / Σ(token weight)
 ~~~
 
+The sums run over one micro-batch. The recorded runs used `per_device_train_batch_size=1` with 8 gradient-accumulation steps, so in practice every essay was normalized by its own total weight and the 8 essays were then averaged. Weights that differ between tokens of the same essay work as intended. Weights that raise a whole essay's score tokens are partly divided back out (see the ablation below).
+
+`loss_normalization` in the config (or `--loss-normalization` on the command line) selects this behaviour:
+
+- `per_sample` (default; used for v1 and v1b): each essay is divided by its own weight sum.
+- `dataset_mean`: every essay is divided by the same constant, the mean supervised weight over the training set, so sample-level weights keep their full effect.
+
 I picked these weights by hand for this task. There was no hyperparameter search.
 
 - `src/qlora/tokenization.py`: maps tokens to roles
@@ -119,6 +127,8 @@ v1 still bunched its predictions around 3 and 4, so for v1b I also weighted scor
 
 v1b predicted more 1s and 5s, but both metrics got slightly worse, so I kept v1.
 
+v1b was trained with `per_sample` normalization. When an essay's score tokens get a class weight of 2.0, that essay's denominator grows too, so the score tokens' share of the loss rises by much less than 2×. The difference is largest for essays whose three scores are all rare, which is common because the dimensions are correlated. The class balancing in v1b was therefore weaker than its weights suggest, and the result says more about this weak version than about class balancing in general. Re-running v1b with `--loss-normalization dataset_mean` would test the intended weighting; I have not run it.
+
 ## Postmortem: scores vs rationales
 
 Weighting score tokens at 10.0 and rationale tokens at 0.05, with template-style rationale targets, probably hurt the rationales. They got noticeably simpler after fine-tuning (noted in the experiment log). The LLM Judge score (3.03) fits that explanation, but I didn't run anything that isolates the cause.
@@ -126,6 +136,8 @@ Weighting score tokens at 10.0 and rationale tokens at 0.05, with template-style
 If I did it again, I would:
 
 - run a uniform-loss baseline and sweep the rationale weight
+- re-run class balancing with `dataset_mean` normalization
+- report validation for the exact submitted artifact (merged BF16 with `repetition_penalty=1.05`); the validation numbers above come from the 4-bit base model with the adapter and no repetition penalty
 - use richer rationale targets
 - try two stages: one model predicts the scores, a second writes explanations given those scores
 - use a rationale-quality metric in model selection, not just RMSE and Spearman
@@ -151,8 +163,8 @@ python src/train_qlora.py \
   --output-dir checkpoints/qwen3_4b_qlora_v1 \
   --config configs/qwen3_4b_qlora_v1.json
 
-# Run validation inference with the adapter
-python src/zero_shot.py \
+# Run validation inference with the adapter (omit --adapter for zero-shot)
+python src/infer.py \
   --input data/raw/validation.jsonl \
   --output-dir outputs/qlora_v1 \
   --adapter checkpoints/qwen3_4b_qlora_v1/final_adapter
@@ -171,7 +183,7 @@ python src/export_merged_hf.py \
 
 ## Tests
 
-GitHub Actions runs the 85 CPU unit tests on every pull request and every push to `master`.
+GitHub Actions runs the 93 CPU unit tests on every pull request and every push to `master`.
 
 ~~~bash
 python -m unittest discover -s tests -v

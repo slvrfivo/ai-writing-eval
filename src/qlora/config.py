@@ -12,6 +12,7 @@ from typing import Any, Mapping
 COMMIT_SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 ROLE_NAMES = ("prompt", "structure", "score", "rationale")
 SUPPORTED_TARGET_CONSTRUCTION_VERSION = "rubric_general_v1"
+LOSS_NORMALIZATIONS = ("per_sample", "dataset_mean")
 
 
 class QLoRAConfigError(ValueError):
@@ -39,6 +40,8 @@ class QLoRAConfig:
     class_balancing: dict[str, Any]
     lora: dict[str, Any]
     training: dict[str, Any]
+    # Optional; omitted in the recorded configs, which used per-sample normalization.
+    loss_normalization: str = "per_sample"
 
     @classmethod
     def from_json(cls, path: Path) -> "QLoRAConfig":
@@ -58,6 +61,7 @@ class QLoRAConfig:
             class_balancing=_object(payload, "class_balancing"),
             lora=_object(payload, "lora"),
             training=_object(payload, "training"),
+            loss_normalization=payload.get("loss_normalization", "per_sample"),
         )
         config.validate()
         return config
@@ -103,6 +107,11 @@ class QLoRAConfig:
         ):
             if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
                 raise QLoRAConfigError(f"{name} must be non-negative")
+
+        if self.loss_normalization not in LOSS_NORMALIZATIONS:
+            raise QLoRAConfigError(
+                f"loss_normalization must be one of {LOSS_NORMALIZATIONS}"
+            )
 
         expected_class_balancing_keys = {
             "enabled",
@@ -173,6 +182,28 @@ class QLoRAConfig:
             class_balancing=dict(self.class_balancing),
             lora=dict(self.lora),
             training=dict(self.training),
+            loss_normalization=self.loss_normalization,
+        )
+        updated.validate()
+        return updated
+
+    def with_loss_normalization(self, value: str | None) -> "QLoRAConfig":
+        if value is None:
+            return self
+        updated = QLoRAConfig(
+            model_id=self.model_id,
+            revision=self.revision,
+            prompt_version=self.prompt_version,
+            target_construction_version=self.target_construction_version,
+            max_seq_length=self.max_seq_length,
+            quantization=dict(self.quantization),
+            score_loss_weight=self.score_loss_weight,
+            structure_loss_weight=self.structure_loss_weight,
+            rationale_loss_weight=self.rationale_loss_weight,
+            class_balancing=dict(self.class_balancing),
+            lora=dict(self.lora),
+            training=dict(self.training),
+            loss_normalization=value,
         )
         updated.validate()
         return updated
@@ -195,6 +226,7 @@ class QLoRAConfig:
             class_balancing={**self.class_balancing, "enabled": enabled},
             lora=dict(self.lora),
             training=dict(self.training),
+            loss_normalization=self.loss_normalization,
         )
         updated.validate()
         return updated

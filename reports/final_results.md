@@ -57,7 +57,7 @@ The experiments support the following claims:
 
 - supervised QLoRA adaptation substantially improved score calibration relative to zero-shot inference;
 - the selected setup outperformed a rounded statistical mean baseline on local validation;
-- global class balancing increased extreme-score predictions but slightly worsened overall RMSE and Spearman;
+- the class-balanced run (v1b) predicted slightly more extreme scores and was slightly worse on RMSE and Spearman. Because the loss was normalized per essay, its class weights were much weaker than configured, so this is not a test of full-strength class balancing;
 - the final merged BF16 artifact could be validated through the competition serving path.
 
 The experiments do **not** isolate the causal contribution of the weighted token objective because a uniform-loss QLoRA ablation was not run.

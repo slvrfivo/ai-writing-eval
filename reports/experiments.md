@@ -16,7 +16,7 @@ Detailed global and per-`prompt_num` means are written to `outputs/baselines/bas
 - Inference: official competition prompt, NF4 4-bit, BF16 compute, `max_new_tokens=1024`, `do_sample=False`, `batch_size=1`
 - Hardware: NVIDIA A100 MIG 1g, approximately 9.5 GiB usable VRAM
 - Validation: 399 valid predictions out of 400, 99.75% parse success, 0 truncations, 1 invalid JSON output
-- Failure case: the model generated an invalid JSON escape (`\'`). The metrics below exclude that single sample.
+- Failure case: the model generated an invalid JSON escape (`\'`). The metrics below exclude that single sample, so they are computed on 399 essays while the QLoRA rows below use all 400.
 
 ### Metrics on 399 valid predictions
 
@@ -100,8 +100,11 @@ Detailed global and per-`prompt_num` means are written to `outputs/baselines/bas
 - Extreme-score predictions became more frequent.
 - Expression improved on both RMSE and Spearman.
 - Content and Organization both degraded.
-- The global class-balancing scheme appears to have over-corrected.
 - v1 remained the best overall checkpoint.
+
+### Note added 2026-11-11: the class weights were weaker than configured
+
+The original conclusion said the class-balancing scheme "appears to have over-corrected". That reading is unlikely. Training used one essay per micro-batch, and the weighted loss divides by the micro-batch's own weight sum, so each essay was normalized separately. Raising all score-token weights of an essay raises its denominator as well, which cancels much of the class weight; the change in predictions was also small (6 predicted 5s per dimension at most). v1b is better described as a weak class-balancing run. `--loss-normalization dataset_mean` now applies a fixed denominator so the configured weights take full effect; that run has not been done.
 
 ## Official competition results (2026-08-25 to 2026-09-23)
 
