@@ -1,2 +1,5 @@
 # Prompt snapshots are hashed byte-for-byte and must be identical on every OS.
 prompts/official/** text eol=lf
+
+# Generated README figures are checked against src/make_figures.py in tests/test_figures.py.
+docs/assets/*.svg text eol=lf
