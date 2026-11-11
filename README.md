@@ -87,7 +87,7 @@ After fine-tuning, organization predictions moved mostly to 3 and 4 (242 and 153
 
 ## Weighted token loss
 
-The competition only scores the numbers, but a standard language-model loss treats every output token about the same. So I tagged each target token by role and gave each role its own weight:
+RMSE and Spearman depend on the predicted scores, so I assigned higher loss weights to score tokens than to rationale tokens. So I tagged each target token by role and gave each role its own weight:
 
 | Token role | Loss weight |
 |---|---:|
