@@ -1,41 +1,38 @@
-# Qwen3-4B + QLoRA 기반 한국어 논증문 자동 채점
+# Qwen3-4B + QLoRA 한국어 논증문 자동 채점
 
 [English README](README.md)
 
 [![tests](https://github.com/slvrfivo/ai-writing-eval/actions/workflows/tests.yml/badge.svg)](https://github.com/slvrfivo/ai-writing-eval/actions/workflows/tests.yml)
 
-2026 **국립국어원 AI말평 글쓰기 채점 능력 평가**를 위해 개발한 Qwen3-4B 기반 한국어 논증문 자동 채점 프로젝트입니다.
+2026 국립국어원 AI말평 글쓰기 채점 능력 평가에 참가하면서 만든 프로젝트입니다. 글쓰기 주제와 논증문을 넣으면 내용, 구성, 표현을 각각 1–5점으로 채점하고, 점수마다 한국어로 짧은 근거를 붙입니다.
 
-주제와 논증문을 입력받아 **내용(Content), 구성(Organization), 표현(Expression)**을 각각 1–5점으로 평가하고, 각 점수에 대한 한국어 근거를 JSON 형식으로 생성합니다.
+Qwen3-4B-Instruct를 QLoRA로 파인튜닝했고, loss는 점수 토큰에 가중치를 크게 주도록 바꿨습니다. 비공개 공식 test set에서는 RMSE 0.621, Spearman 0.570이 나왔습니다.
 
-QLoRA 파인튜닝과 score-focused weighted token objective를 적용한 최종 모델은 validation에서 **RMSE 0.6384 / Spearman 0.5237**을 기록했습니다. 단순 평균 baseline의 RMSE는 **0.7870**, Qwen3-4B zero-shot은 **RMSE 1.1612 / Spearman 0.2753**이었습니다. 비공개 공식 test set에서는 **RMSE 0.6213 / Spearman 0.5697 / LLM Judge 3.0337**을 기록했습니다.
-
-- **Base model:** `Qwen/Qwen3-4B-Instruct-2507`
-- **Fine-tuning:** 4-bit NF4 QLoRA
-- **Official test:** RMSE **0.6213** / Spearman **0.5697**
-- **Hugging Face:** https://huggingface.co/slvrfivo/qwen3-4b-writing-eval-v1-merged
+- Base model: `Qwen/Qwen3-4B-Instruct-2507`
+- Fine-tuning: 4-bit NF4 QLoRA
+- Hugging Face: https://huggingface.co/slvrfivo/qwen3-4b-writing-eval-v1-merged
 
 ## 결과
 
 | 모델 / 평가 | RMSE ↓ | Spearman ↑ | 비고 |
 |---|---:|---:|---|
-| 통계 평균 baseline | 0.7870 | undefined* | 반올림 후 모든 샘플에 동일한 점수 예측 |
+| 통계 평균 baseline | 0.7870 | 정의 안 됨* | 반올림하면 모든 글에 같은 점수 |
 | Qwen3-4B zero-shot | 1.1612 | 0.2753 | 400건 중 399건 valid |
-| **Weighted QLoRA v1** | **0.6384** | **0.5237** | 최종 선택한 local checkpoint |
-| Class-balanced QLoRA v1b | 0.6452 | 0.5189 | negative ablation |
-| **공식 hidden test** | **0.6213** | **0.5697** | LLM Judge 3.0337 |
+| **Weighted QLoRA v1** | 0.6384 | 0.5237 | 최종 선택 |
+| Class-balanced QLoRA v1b | 0.6452 | 0.5189 | ablation, 채택 안 함 |
+| 공식 hidden test (v1) | 0.6213 | 0.5697 | LLM Judge 3.0337 |
 
-*통계 baseline은 공식 반올림 이후 예측값이 상수가 되므로 순위 분산이 0이고 Spearman 상관계수는 정의되지 않습니다.
+\*평균 baseline은 공식 반올림을 거치면 모든 글에 같은 점수를 주게 돼서 Spearman을 계산할 수 없습니다.
 
-공식 예선에서는 **53팀 중 49위**를 기록했고, 상위 50개 모델이 진출한 **AI말평 Arena 전문가 평가 단계**에서 **842점 / 50개 모델 중 44위**를 기록했습니다.
+예선 리더보드에서는 53팀 중 49위였습니다. 상위 50개 모델은 전문가가 출력을 직접 비교하는 AI말평 Arena로 넘어갔는데, 여기서는 842점으로 50개 중 44위를 했습니다.
 
-비공개 공식 test RMSE(**0.6213**)는 local validation RMSE(**0.6384**)보다 소폭 낮았습니다. 이는 held-out 대회 데이터에서도 성능이 유지되었다는 긍정적인 신호지만, split과 평가 조건이 다르므로 **과적합이 없었다는 증거로 해석하지는 않습니다.**
+공식 test RMSE(0.621)가 validation(0.638)보다 조금 좋게 나왔지만, split과 평가 조건이 달라서 큰 의미를 두지는 않았습니다.
 
-최종 결과 요약은 [reports/final_results.md](reports/final_results.md), 상세 실험 기록은 [reports/experiments.md](reports/experiments.md)에 정리했습니다.
+최종 결과: [reports/final_results.md](reports/final_results.md) · 실험 기록: [reports/experiments.md](reports/experiments.md)
 
-## 문제 설정
+## 출력 형식
 
-입력은 글쓰기 주제와 한국어 논증문으로 구성됩니다. 모델은 세 영역의 점수와 근거를 하나의 JSON 객체로 생성합니다.
+세 영역의 점수와 근거를 JSON 하나로 출력합니다.
 
 ~~~json
 {
@@ -54,159 +51,165 @@ QLoRA 파인튜닝과 score-focused weighted token objective를 적용한 최종
 }
 ~~~
 
-## 접근 방법
+## 진행 과정
 
-### 1. 공식 평가 로직 재현
+### 1. 공식 채점 방식 재현
 
-`src/evaluate.py`에서 대회의 정량 평가 규칙을 로컬에 재현했습니다.
+모델을 학습하기 전에 `src/evaluate.py`를 먼저 만들어서, 로컬 점수를 대회 점수와 같은 기준으로 비교할 수 있게 했습니다.
 
-- 예측 JSON 구조 검증
-- 1–5 범위 확인
-- `ROUND_HALF_UP` 방식 반올림
-- Content / Organization / Expression별 RMSE와 Spearman 계산
-- 동점 순위에 평균 순위 적용
+- JSON 구조와 점수 범위(1–5) 확인
+- `ROUND_HALF_UP`으로 반올림한 뒤 채점
+- 내용, 구성, 표현별 RMSE와 Spearman 계산
+- 동점은 평균 순위로 처리
 
-이를 먼저 구현해 이후 모든 실험을 동일한 평가 기준으로 비교했습니다.
+### 2. Zero-shot baseline
 
-### 2. Qwen3-4B zero-shot baseline
+`Qwen/Qwen3-4B-Instruct-2507`을 NF4 4-bit로 불러와 공식 prompt와 greedy decoding으로 추론했습니다. RMSE 1.161, Spearman 0.275가 나왔고, 400건 중 399건이 올바른 JSON이었습니다.
 
-`Qwen/Qwen3-4B-Instruct-2507`을 NF4 4-bit로 로드하고 공식 prompt로 zero-shot 추론을 수행했습니다.
-
-- Mean RMSE: **1.1612**
-- Mean Spearman: **0.2753**
-- Strict JSON parse: **399 / 400**
-
-특히 Organization 영역에서 점수를 과도하게 높게 예측하는 calibration 문제가 컸고, 이를 바탕으로 supervised adaptation을 진행했습니다.
+점수를 전반적으로 너무 높게 줬습니다. 특히 구성은 399건 중 304건에 5점을 줘서 파인튜닝을 하기로 했습니다.
 
 ### 3. QLoRA 파인튜닝
 
-약 9.5 GiB VRAM의 NVIDIA A100 MIG 환경에서 full fine-tuning 대신 QLoRA를 사용했습니다.
+학습 환경이 VRAM 약 9.5 GiB짜리 A100 MIG여서 full fine-tuning은 할 수 없었고 QLoRA를 썼습니다. 최종 run의 설정은 다음과 같습니다.
 
-주요 설정:
-
-- NF4 4-bit quantization
-- BF16 compute
-- LoRA `r=16`, `alpha=32`, `dropout=0.05`
-- all-linear target modules
-- 1 epoch
-- learning rate `5e-5`
-- effective batch size 8
+- NF4 4-bit base model, BF16 compute
+- 모든 linear layer에 LoRA, `r=16`, `alpha=32`, `dropout=0.05`
+- 1 epoch, learning rate `5e-5`, effective batch size 8
 - max sequence length 2048
 
-전체 설정은 [configs/qwen3_4b_qlora_v1.json](configs/qwen3_4b_qlora_v1.json)에서 확인할 수 있습니다.
+전체 설정: [configs/qwen3_4b_qlora_v1.json](configs/qwen3_4b_qlora_v1.json)
 
-### Organization 예측 분포 변화
+### 구성 점수 예측 분포
 
 ![Organization prediction distribution: zero-shot vs QLoRA v1](docs/assets/organization_prediction_distribution.svg)
 
-Zero-shot에서는 Organization을 **399건 중 304건에서 5점**으로 예측했습니다. QLoRA 이후에는 3점과 4점 예측이 각각 **242건 / 153건**으로 이동해 과대평가는 크게 줄었지만, 반대로 중간 점수로 수렴하는 경향이 남았습니다.
+파인튜닝 후에는 구성 점수 예측이 대부분 3점과 4점(400건 중 242건, 153건)으로 옮겨 갔습니다. 점수를 높게 주던 문제는 거의 사라졌지만, 이번에는 예측이 가운데로 몰렸습니다.
 
-## Score-focused Weighted Token Objective
+## 토큰 역할별 loss 가중치
 
-일반적인 causal language-model loss는 supervised output token을 비슷한 중요도로 다룹니다. 하지만 이 대회에서는 **점수 토큰의 오류가 RMSE와 Spearman에 직접 영향을 주기 때문에**, target token을 역할별로 구분해 서로 다른 loss weight를 적용했습니다.
+대회는 점수만 채점하는데, 일반적인 언어모델 loss는 출력 토큰을 모두 비슷하게 취급합니다. 그래서 정답 토큰마다 역할을 붙이고 역할별로 가중치를 다르게 줬습니다.
 
-| Token 역할 | Loss weight |
+| 토큰 역할 | Loss weight |
 |---|---:|
 | Prompt | 0.00 |
-| JSON structure | 0.25 |
-| **Score** | **10.00** |
-| Rationale | 0.05 |
+| JSON 구조 | 0.25 |
+| 점수 | 10.00 |
+| 근거(rationale) | 0.05 |
 
 ~~~text
 weighted loss = Σ(token loss × token weight) / Σ(token weight)
 ~~~
 
-이 값들은 systematic hyperparameter search로 선택한 것이 아니라 **대회 목적에 맞게 heuristic하게 설정한 값**입니다.
+가중치는 탐색 없이 직접 정한 값입니다.
 
-구현 위치:
+- `src/qlora/tokenization.py`: 토큰에 역할 붙이기
+- `src/qlora/loss.py`: 가중 cross entropy 계산
+- `src/qlora/training.py`: Transformers Trainer에 loss 연결
 
-- `src/qlora/tokenization.py`
-- `src/qlora/loss.py`
-- `src/qlora/training.py`
+가중치를 모두 1로 둔 QLoRA는 학습해 보지 않았습니다. 그래서 성능이 오른 게 가중치 덕분인지, 파인튜닝 자체 덕분인지는 나눠서 말할 수 없습니다.
 
-> 동일한 설정에서 모든 token weight를 1로 둔 uniform-loss QLoRA 실험은 수행하지 않았습니다. 따라서 zero-shot 및 통계 baseline 대비 개선을 weighted objective 단독의 효과로 해석하지 않고, **전체 QLoRA fine-tuning setup의 결과**로 봅니다.
+## Ablation: 점수별 class 가중치
 
-## Class-balanced Ablation
-
-v1 모델은 예측이 주로 3점과 4점에 집중되는 문제가 남아 있었습니다. 이를 줄이기 위해 train label 분포를 기반으로 score token에 class-dependent weight를 추가한 v1b를 실험했습니다.
+v1도 여전히 3점과 4점에 몰려 있어서, v1b에서는 train 데이터에 드문 점수일수록 점수 토큰 가중치를 더 주었습니다.
 
 | 모델 | RMSE ↓ | Spearman ↑ |
 |---|---:|---:|
-| **Weighted QLoRA v1** | **0.6384** | **0.5237** |
+| Weighted QLoRA v1 | 0.6384 | 0.5237 |
 | Class-balanced QLoRA v1b | 0.6452 | 0.5189 |
 
-v1b에서는 극단 점수 예측은 늘었지만 전체 RMSE와 Spearman이 소폭 악화되어, 최종 모델은 v1을 유지했습니다.
+v1b는 1점과 5점을 더 많이 예측했지만 두 지표 모두 조금 나빠져서 v1을 그대로 썼습니다.
 
-## 회고: 점수 정확도와 rationale 품질의 trade-off
+## 회고: 점수와 근거 사이
 
-학습 objective에서는 score token에 **10.0**, rationale token에 **0.05**의 가중치를 두었고, rationale target 역시 rubric template 중심으로 구성했습니다. 실제 실험 로그에서도 fine-tuning 이후 rationale이 더 단순하고 템플릿에 가까워졌다고 기록했습니다.
+점수 토큰에 10.0, 근거 토큰에 0.05를 주고 근거 정답도 템플릿에 가깝게 만들다 보니, 근거 품질이 떨어졌을 가능성이 큽니다. 실험 기록에도 파인튜닝 후 근거가 눈에 띄게 단순해졌다고 적어 뒀습니다. LLM Judge 점수(3.03)와 전문가가 근거까지 읽고 비교한 Arena 결과도 이 설명과 맞긴 하지만, 원인을 따로 떼어 확인한 실험은 없습니다.
 
-따라서 이 프로젝트에서는 정량 점수 지표를 개선하는 방향과 근거 설명의 풍부함 사이에 trade-off가 있었을 가능성이 있습니다. 공식 **LLM Judge 3.0337**과 rationale을 포함한 출력을 전문가가 비교한 Arena 결과는 이 해석과 **일관되지만**, rationale 가중치가 최종 순위의 직접 원인이었다고 입증하는 실험은 없습니다.
+다시 한다면 이렇게 해 보겠습니다.
 
-다시 진행한다면 uniform-loss baseline과 rationale weight sweep을 추가하고, 더 풍부한 rationale target을 사용하며, score prediction과 explanation generation을 두 단계로 분리하는 방법도 비교하겠습니다. 또한 RMSE/Spearman뿐 아니라 rationale 품질 지표도 model selection 기준에 포함하겠습니다.
+- 가중치 없는 baseline을 돌리고 근거 가중치를 여러 값으로 바꿔 보기
+- 근거 정답을 더 풍부하게 만들기
+- 점수 예측과 근거 생성을 두 단계로 나누기 (첫 모델이 점수를 내고, 두 번째 모델이 그 점수를 보고 근거를 씀)
+- 모델을 고를 때 RMSE, Spearman뿐 아니라 근거 품질 지표도 보기
 
-## 모델 Export 및 Serving
+## Export와 서빙
 
-최종 PEFT adapter는 pinned BF16 base model에 merge해 standalone Hugging Face 모델로 export했습니다.
+최종 adapter를 고정한 BF16 base model에 merge해서 단독 Hugging Face 모델로 export했습니다. export 스크립트는 merge → 다시 불러오기 → model/tokenizer 일치 확인 → strict JSON smoke test 순서로 돌아갑니다.
 
-Export 과정에서는 다음을 확인합니다.
+최종 제출 전에 테스트해 보니 merge한 모델이 일부 입력에서 같은 말을 반복했습니다. 그래서 공개한 모델의 `generation_config.json`에 `"repetition_penalty": 1.05`를 넣었습니다. 이 값은 [configs/submission_generation.json](configs/submission_generation.json)에 두었고, export CLI가 smoke test 전에 export된 설정에 자동으로 써 넣습니다.
 
-**merge → local reload → model/tokenizer invariant check → strict JSON smoke test**
-
-최종 제출 테스트 과정에서 일부 입력에 반복 생성 문제가 발생해 Hugging Face artifact의 `generation_config.json`에 다음 설정을 적용했습니다.
-
-~~~json
-{
-  "repetition_penalty": 1.05
-}
-~~~
-
-이 제출 시점 설정은 [configs/submission_generation.json](configs/submission_generation.json)에 남겨두었고, BF16 export CLI가 이 파일을 읽어 export된 Hugging Face `generation_config.json`에 자동으로 적용하도록 연결했습니다.
-
-최종 모델은 vLLM OpenAI-compatible serving 환경에서도 검증했습니다. Hugging Face 모델 카드 초안은 [docs/huggingface_model_card.md](docs/huggingface_model_card.md)에 정리했습니다.
+최종 모델은 vLLM의 OpenAI 호환 서버로도 띄워서, 대회에서 요구한 health, model 목록, chat completions endpoint가 동작하는지 확인했습니다. Hugging Face 모델 카드 초안은 [docs/huggingface_model_card.md](docs/huggingface_model_card.md)에 있습니다.
 
 ## 재현
 
-학습 환경과 세부 재현 방법은 [docs/reproducibility.md](docs/reproducibility.md)에 정리되어 있습니다.
+학습 환경과 자세한 재현 방법: [docs/reproducibility.md](docs/reproducibility.md)
 
 ~~~bash
 pip install -r requirements-train-gpu.txt
 
+# 최종 QLoRA 설정으로 학습
 python src/train_qlora.py \
   --input data/raw/train.jsonl \
   --output-dir checkpoints/qwen3_4b_qlora_v1 \
   --config configs/qwen3_4b_qlora_v1.json
 
+# adapter로 validation 추론
 python src/zero_shot.py \
   --input data/raw/validation.jsonl \
   --output-dir outputs/qlora_v1 \
   --adapter checkpoints/qwen3_4b_qlora_v1/final_adapter
 
+# 채점
 python src/evaluate.py \
   --predictions outputs/qlora_v1/predictions.jsonl \
   --require-rationale
+
+# BF16 단독 모델로 merge
+python src/export_merged_hf.py \
+  --adapter checkpoints/qwen3_4b_qlora_v1/final_adapter \
+  --output-dir /path/to/submission/qwen3-4b-writing-eval-v1-merged \
+  --validation-input data/raw/validation.jsonl
 ~~~
 
 ## 테스트
 
-GitHub Actions에서 pull request와 `master` push마다 CPU unit test를 실행합니다. 현재 테스트는 **85개**입니다.
+pull request와 `master` push마다 GitHub Actions에서 CPU unit test 85개를 돌립니다.
 
 ~~~bash
 python -m unittest discover -s tests -v
 ~~~
 
+## 저장소 구성
+
+~~~text
+ai-writing-eval/
+├── configs/        # zero-shot, QLoRA, 최종 서빙 설정
+├── docs/           # 대회, 재현 관련 메모
+├── prompts/        # 버전 관리한 공식 prompt
+├── reports/        # 실험 기록, 공식 결과
+├── src/
+│   ├── llm/        # prompt, 파싱, 추론, export
+│   └── qlora/      # QLoRA 데이터, 토큰화, loss, 학습
+├── tests/
+├── requirements*.txt
+├── LICENSE
+└── README.md
+~~~
+
 ## 한계
 
-- 학습 데이터는 2,000건입니다.
-- v1에서도 예측이 중간 점수로 수렴하는 경향이 남아 있습니다.
-- 1점과 5점은 3점과 4점보다 예측하기 어렵습니다.
-- uniform-loss QLoRA ablation을 수행하지 않아 weighted token loss의 독립적인 기여도는 분리하지 못했습니다.
-- class balancing은 극단 점수 예측을 늘렸지만 전체 validation 성능은 악화시켰습니다.
-- local validation은 RMSE와 Spearman을 재현하지만 공식 LLM Judge는 재현하지 않습니다.
-- 대회 prompt, domain, rubric 밖에서의 성능은 검증하지 않았습니다.
+- 학습 데이터가 2,000건뿐입니다.
+- v1도 예측이 가운데로 몰리는 경향이 남아 있고, 1점과 5점은 3점, 4점보다 맞히기 어렵습니다.
+- 가중치 없는 run이 없어서 loss 가중치만의 효과는 알 수 없습니다.
+- 로컬 채점기는 RMSE와 Spearman만 재현하고, 공식 LLM Judge는 재현하지 않습니다.
+- 대회 prompt, 분야, 채점 기준 밖에서는 테스트하지 않았습니다.
 
-## 데이터 및 라이선스
+## 데이터와 라이선스
 
-대회 데이터는 이 저장소에서 재배포하지 않습니다. 데이터, checkpoint, 생성 결과, 모델 weight는 `.gitignore`를 통해 제외합니다.
+대회 데이터는 이 저장소에 넣지 않았습니다. 데이터, checkpoint, 생성 결과, 모델 weight는 `.gitignore`로 제외했습니다.
 
-프로젝트 코드는 Apache License 2.0으로 공개합니다. 외부 모델, 대회 데이터, 공식 자료에는 각각의 라이선스 및 이용 조건이 적용됩니다.
+코드는 Apache License 2.0으로 공개합니다. 외부 모델, 대회 데이터, 공식 자료는 각각의 이용 조건을 따릅니다.
+
+## 공식 자료
+
+- 과제 소개: https://kli.korean.go.kr/benchmark/taskOrdtm/taskList.do?taskOrdtmId=205
+- 예선 리더보드: https://kli.korean.go.kr/benchmark/taskOrdtm/taskLeaderBoard.do?clCd=ING_TASK&subMenuId=sub04&taskOrdtmId=205
+- Arena 소개: https://kli.korean.go.kr/taskOrdtm/taskList.do?clCd=END_TASK&subMenuId=sub01&taskOrdtmId=215
