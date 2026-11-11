@@ -24,6 +24,8 @@ Qwen3-4B-Instruct를 QLoRA로 파인튜닝했고, loss는 점수 토큰에 가�
 
 \*평균 baseline은 공식 반올림을 거치면 모든 글에 같은 점수를 주게 돼서 Spearman을 계산할 수 없습니다.
 
+예선 이후에는 전문가가 모델 출력을 직접 비교하는 AI말평 Arena 단계에도 참가했습니다.
+
 공식 test RMSE(0.621)가 validation(0.638)보다 조금 좋게 나왔지만, split과 평가 조건이 달라서 큰 의미를 두지는 않았습니다.
 
 최종 결과: [reports/final_results.md](reports/final_results.md) · 실험 기록: [reports/experiments.md](reports/experiments.md)
@@ -209,3 +211,4 @@ ai-writing-eval/
 ## 공식 자료
 
 - 과제 소개: https://kli.korean.go.kr/benchmark/taskOrdtm/taskList.do?taskOrdtmId=205
+- Arena 소개: https://kli.korean.go.kr/taskOrdtm/taskList.do?clCd=END_TASK&subMenuId=sub01&taskOrdtmId=215

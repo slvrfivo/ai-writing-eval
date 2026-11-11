@@ -24,6 +24,8 @@ I fine-tuned Qwen3-4B-Instruct with QLoRA, using a loss that puts most of its we
 
 \*After the official rounding, the mean baseline predicts the same score for every essay, so Spearman is undefined.
 
+After the preliminary round, the model also took part in the AI말평 Arena, where human experts compared model outputs side by side.
+
 The test RMSE came out slightly better than validation (0.621 vs 0.638). The splits and evaluation conditions differ, so I don't read much into that.
 
 Final results: [reports/final_results.md](reports/final_results.md) · Experiment log: [reports/experiments.md](reports/experiments.md)
@@ -209,3 +211,4 @@ The code is released under the Apache License 2.0. Third-party models, competiti
 ## Official references
 
 - Task overview: https://kli.korean.go.kr/benchmark/taskOrdtm/taskList.do?taskOrdtmId=205
+- Arena overview: https://kli.korean.go.kr/taskOrdtm/taskList.do?clCd=END_TASK&subMenuId=sub01&taskOrdtmId=215

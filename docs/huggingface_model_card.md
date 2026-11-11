@@ -54,6 +54,8 @@ https://github.com/slvrfivo/ai-writing-eval
 - Spearman: **0.5697**
 - LLM Judge: **3.0337**
 
+After the preliminary round, the model also took part in the AI말평 Arena expert human-evaluation stage.
+
 ## Training objective
 
 The project used a score-focused weighted causal language-model objective. Supervised target tokens were assigned role-specific weights:

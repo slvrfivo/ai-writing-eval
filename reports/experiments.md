@@ -111,6 +111,7 @@ Selected submission:
 - Official preliminary RMSE: **0.6213**
 - Official preliminary Spearman: **0.5697**
 - Official preliminary LLM Judge: **3.0337**
+- Also took part in the AI말평 Arena expert human-evaluation stage
 
 The selected competition artifact was the merged BF16 Hugging Face model:
 
